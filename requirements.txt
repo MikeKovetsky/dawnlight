@@ -1,0 +1,4 @@
+fal-client
+Pillow
+python-dotenv
+requests

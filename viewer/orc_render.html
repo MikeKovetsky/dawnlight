@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><style>* { margin: 0; } body { background: #d8d8d8; overflow: hidden; } canvas { display: block; }</style></head>
+<body>
+<script type="importmap">
+{ "imports": { "three": "https://esm.sh/three@0.170.0", "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from "three";
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.4;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xd8d8d8);
+const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 100);
+
+scene.add(new THREE.DirectionalLight(0xffeedd, 2.0)).position.set(3, 5, 4);
+scene.add(new THREE.DirectionalLight(0x8899cc, 0.8)).position.set(-3, 3, -2);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+const texLoader = new THREE.TextureLoader();
+function loadTex(path) {
+  const tex = texLoader.load(path);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.flipY = false;
+  return tex;
+}
+const texMap = {
+  125375: loadTex("models/creative_test/tex_125375_nanobanana.webp"),
+  125373: loadTex("models/creative_test/tex_125373_nanobanana.webp"),
+};
+
+let group = null;
+
+(async () => {
+  const resp = await fetch("models/orcmalewarriorheavy.json");
+  const data = await resp.json();
+  const pos = data.positions, nrm = data.normals;
+  const swP = new Float32Array(pos.length), swN = new Float32Array(nrm.length);
+  for (let i = 0; i < pos.length; i += 3) {
+    swP[i] = pos[i]; swP[i+1] = pos[i+2]; swP[i+2] = -pos[i+1];
+    swN[i] = nrm[i]; swN[i+1] = nrm[i+2]; swN[i+2] = -nrm[i+1];
+  }
+  const pA = new THREE.Float32BufferAttribute(swP, 3);
+  const nA = new THREE.Float32BufferAttribute(swN, 3);
+  const uA = new THREE.Float32BufferAttribute(new Float32Array(data.uvs), 2);
+  group = new THREE.Group();
+  for (const sm of data.submeshes) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", pA); g.setAttribute("normal", nA); g.setAttribute("uv", uA);
+    g.setIndex(data.indices.slice(sm.startIndex, sm.startIndex + sm.indexCount));
+    g.computeBoundingSphere();
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.7, metalness: 0.05, side: THREE.DoubleSide, alphaTest: 0.3 });
+    mat.map = texMap[sm.texFdid] || null;
+    group.add(new THREE.Mesh(g, mat));
+  }
+  const box = new THREE.Box3().setFromObject(group);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  group.position.sub(center);
+  group.position.y += size.y / 2;
+
+  const maxDim = Math.max(size.x, size.y, size.z);
+  camera.position.set(maxDim * 0.4, maxDim * 0.4, maxDim * 1.2);
+  camera.lookAt(0, maxDim * 0.35, 0);
+
+  scene.add(group);
+})();
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body></html>

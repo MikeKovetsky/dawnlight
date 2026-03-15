@@ -205,3 +205,16 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Dawnlight assets (large binary files)
+assets/input/
+assets/upscaled/
+assets/meshes/
+assets/blp/
+assets/adt/
+assets/terrain/
+assets/listfile.csv
+
+# Upscaled textures – originals are PNGs (don't commit them)
+viewer/wmo/creative_test/*.png
+viewer/models/creative_test/*.png

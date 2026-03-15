@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dawnlight - Model Preview</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #12121f; color: #d0d0d8; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+
+#toolbar {
+  position: fixed; top: 48px; left: 0; right: 0; z-index: 10;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; background: rgba(18,18,31,0.95);
+  border-bottom: 1px solid #2a2a3e; flex-wrap: wrap;
+}
+#toolbar label { color: #9a9aaa; font-size: 12px; }
+#toolbar select {
+  background: #1e1e34; color: #e8d8a8; border: 1px solid #3a3a5e;
+  padding: 4px 8px; border-radius: 4px; font-size: 13px;
+}
+#toolbar button {
+  background: #1e1e34; color: #c8b88a; border: 1px solid #3a3a5e;
+  padding: 5px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;
+}
+#toolbar button:hover { background: #2a2a4e; border-color: #5a5a7e; }
+.nav-btn { margin-left: auto; display: flex; gap: 4px; }
+.nav-btn button { font-size: 11px; padding: 4px 10px; }
+
+#site-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  height: 48px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; background: #0e0e1a; border-bottom: 1px solid #2a2a3e;
+}
+.header-left { display: flex; align-items: center; gap: 18px; }
+.logo { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: .5px; }
+.header-nav { display: flex; gap: 2px; }
+.header-nav a {
+  padding: 6px 14px; border-radius: 5px; font-size: 13px;
+  color: #778; text-decoration: none; transition: all .15s;
+}
+.header-nav a:hover { color: #bbc; background: #1a1a30; }
+.header-nav a.active { color: #e8d8a8; background: #1e1e34; }
+
+#viewports { display: flex; position: fixed; top: 94px; left: 0; right: 0; bottom: 0; }
+.viewport { flex: 1; position: relative; overflow: hidden; }
+.viewport + .viewport { border-left: 1px solid #2a2a3e; }
+.viewport canvas { display: block; width: 100%; height: 100%; }
+
+.viewport-label {
+  position: absolute; top: 12px; left: 14px;
+  font-size: 12px; color: #c8b88a; pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+}
+.viewport-label .sub { color: #777; font-size: 11px; display: block; margin-top: 2px; }
+
+.viewport-stats {
+  position: absolute; bottom: 12px; left: 14px;
+  font-size: 11px; color: #777; pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<div id="site-header">
+  <div class="header-left">
+    <span class="logo">Dawnlight</span>
+    <nav class="header-nav">
+      <a href="/">Viewer</a>
+      <a href="/preview.html" class="active">Models</a>
+      <a href="/textures/">Textures</a>
+    </nav>
+  </div>
+</div>
+
+<div id="toolbar">
+  <label>Model:</label>
+  <select id="model-select"></select>
+  <div class="nav-btn">
+    <button id="btn-prev">&larr; Prev</button>
+    <button id="btn-next">Next &rarr;</button>
+  </div>
+</div>
+
+<div id="viewports">
+  <div class="viewport" id="vp-left">
+    <div class="viewport-label">Original<span class="sub" id="stats-left-label"></span></div>
+    <div class="viewport-stats" id="stats-left"></div>
+  </div>
+  <div class="viewport" id="vp-right">
+    <div class="viewport-label">New Textures<span class="sub" id="stats-right-label"></span></div>
+    <div class="viewport-stats" id="stats-right"></div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://esm.sh/three@0.170.0",
+    "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="src/preview.js"></script>
+</body>
+</html>

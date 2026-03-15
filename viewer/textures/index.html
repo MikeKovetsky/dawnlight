@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dawnlight Textures</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #12121f; color: #d0d0d8; font-family: system-ui, -apple-system, sans-serif; }
+
+#site-header {
+  position: sticky; top: 0; z-index: 20;
+  height: 40px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; background: #0e0e1a; border-bottom: 1px solid #2a2a3e;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.logo { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .5px; }
+.header-nav { display: flex; gap: 2px; }
+.header-nav a {
+  padding: 5px 12px; border-radius: 5px; font-size: 12px;
+  color: #778; text-decoration: none; transition: all .15s;
+}
+.header-nav a:hover { color: #bbc; background: #1a1a30; }
+.header-nav a.active { color: #e8d8a8; background: #1e1e34; }
+
+nav {
+  display: flex; gap: 8px; padding: 12px 32px; background: #16162a;
+  border-bottom: 1px solid #2a2a3e; position: sticky; top: 40px; z-index: 10;
+  align-items: center;
+}
+nav a, nav button {
+  padding: 6px 14px; border-radius: 6px; font-size: 0.8rem;
+  color: #99a; text-decoration: none; background: #1e1e34;
+  border: 1px solid #2a2a40; transition: all 0.15s; cursor: pointer;
+  font-family: inherit;
+}
+nav a:hover, nav a.active, nav button:hover, nav button.active {
+  background: #2a2a4e; color: #fff; border-color: #4a4a6e;
+}
+nav .count { color: #667; margin-left: 4px; }
+nav .spacer { flex: 1; }
+nav .mode-toggle { display: flex; gap: 0; }
+nav .mode-toggle button {
+  border-radius: 0; border-right-width: 0;
+}
+nav .mode-toggle button:first-child { border-radius: 6px 0 0 6px; }
+nav .mode-toggle button:last-child { border-radius: 0 6px 6px 0; border-right-width: 1px; }
+
+main { padding: 24px 32px; }
+section { margin-bottom: 40px; }
+section h2 {
+  font-size: 1rem; color: #aab; margin-bottom: 16px;
+  padding-bottom: 8px; border-bottom: 1px solid #222238;
+}
+
+/* Grid mode */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: #1a1a30; border: 1px solid #2a2a42; border-radius: 8px;
+  overflow: hidden; cursor: pointer; transition: border-color 0.15s;
+}
+.card:hover { border-color: #5a5a8e; }
+.card .thumb {
+  width: 100%; aspect-ratio: 1; object-fit: contain;
+  background: repeating-conic-gradient(#222 0% 25%, #1a1a2e 0% 50%) 50%/16px 16px;
+}
+.card .info {
+  padding: 8px 10px; font-size: 0.75rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.card .name { color: #ccd; font-weight: 500; }
+.card .size { color: #667; }
+.card .badges { display: flex; gap: 4px; margin-top: 4px; padding: 0 10px 8px; flex-wrap: wrap; }
+.badge {
+  font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;
+  background: #252540; color: #889;
+}
+.badge.esrgan { background: #1a3020; color: #6b6; }
+.badge.nb { background: #3a2a10; color: #da4; }
+.badge.creative { background: #1a2a3a; color: #6ad; }
+.badge.v2 { background: #2a1a3a; color: #b8e; }
+
+/* Compare mode (scroll rows) */
+.compare-strip {
+  background: #16162a; border: 1px solid #2a2a42; border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 20px;
+}
+.compare-strip .strip-header {
+  display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;
+}
+.compare-strip .strip-title { font-size: 0.95rem; color: #ccd; font-weight: 600; }
+.compare-strip .strip-meta { font-size: 0.75rem; color: #667; }
+.compare-strip .strip-images {
+  display: grid; gap: 12px; align-items: start;
+}
+.compare-strip .strip-col { text-align: center; min-width: 0; }
+.compare-strip .strip-col .label {
+  font-size: 0.7rem; color: #778; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 6px;
+}
+.compare-strip .strip-col .label.highlight { color: #f0c040; }
+.compare-strip .strip-col img {
+  width: 100%; border-radius: 6px;
+  border: 2px solid #2a2a4e; cursor: zoom-in;
+  background: repeating-conic-gradient(#222 0% 25%, #1a1a2e 0% 50%) 50%/12px 12px;
+}
+.compare-strip .strip-col .dim {
+  font-size: 0.65rem; color: #556; margin-top: 3px;
+}
+
+/* Overlay (single-texture compare from grid click) */
+.overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+  z-index: 100; overflow-y: auto; padding: 24px;
+}
+.overlay.active { display: block; }
+.overlay .close {
+  position: fixed; top: 16px; right: 24px; font-size: 1.5rem;
+  color: #999; cursor: pointer; z-index: 101; background: none; border: none;
+}
+.overlay .close:hover { color: #fff; }
+.overlay h3 { color: #fff; text-align: center; margin-bottom: 16px; font-size: 1.1rem; }
+.compare-row {
+  display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+  max-width: 1400px; margin: 0 auto;
+}
+.compare-cell { text-align: center; flex: 1; min-width: 250px; max-width: 500px; }
+.compare-cell h4 {
+  font-size: 0.8rem; color: #889; text-transform: uppercase;
+  letter-spacing: 1px; margin-bottom: 8px;
+}
+.compare-cell h4.highlight { color: #f0c040; }
+.compare-cell img {
+  width: 100%; border-radius: 6px; border: 2px solid #2a2a4e;
+  cursor: zoom-in;
+}
+.compare-cell .meta { font-size: 0.75rem; color: #556; margin-top: 4px; }
+
+/* Zoom */
+.zoom-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+  z-index: 200; cursor: zoom-out; overflow: auto;
+}
+.zoom-overlay.active { display: flex; align-items: start; justify-content: center; }
+.zoom-overlay img { display: block; max-width: none; margin: 20px auto; }
+</style>
+</head>
+<body>
+
+<div id="site-header">
+  <div class="header-left">
+    <span class="logo">Dawnlight</span>
+    <nav class="header-nav">
+      <a href="/">Viewer</a>
+      <a href="/preview.html">Models</a>
+      <a href="/textures/" class="active">Textures</a>
+    </nav>
+  </div>
+</div>
+
+<nav id="nav"></nav>
+<main id="main"></main>
+
+<div class="overlay" id="overlay">
+  <button class="close" onclick="closeOverlay()">&times;</button>
+  <div id="overlay-content"></div>
+</div>
+
+<div class="zoom-overlay" id="zoom" onclick="this.classList.remove('active')">
+  <img id="zoom-img" src="">
+</div>
+
+<script>
+const TERRAIN = [
+  { name: "elwynncobblestonebase", orig: "original/elwynncobblestonebase.webp", up: "upscaled/elwynncobblestonebase.webp", nb: "nanobanana/elwynncobblestonebase.webp", v2: "v2/elwynncobblestonebase.webp", origSize: "1024", upSize: "4096" },
+  { name: "elwynndirtbase2", orig: "original/elwynndirtbase2.webp", up: "upscaled/elwynndirtbase2.webp", nb: "nanobanana/elwynndirtbase2.webp", v2: "v2/elwynndirtbase2.webp", origSize: "1024", upSize: "4096" },
+  { name: "elwynngrassbase", orig: "original/elwynngrassbase.webp", up: "upscaled/elwynngrassbase.webp", nb: "nanobanana/elwynngrassbase.webp", v2: "v2/elwynngrassbase.webp", origSize: "1024", upSize: "4096" },
+  { name: "elwynnrockbasetest2", orig: "original/elwynnrockbasetest2.webp", up: "upscaled/elwynnrockbasetest2.webp", nb: "nanobanana/elwynnrockbasetest2.webp", v2: "v2/elwynnrockbasetest2.webp", origSize: "1024", upSize: "4096" },
+];
+
+const MODELS = [
+  { fdid: 464350, w: 2048, h: 2048, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 464351, w: 2048, h: 2048, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189570, w: 512, h: 1024, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189563, w: 1024, h: 1024, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true, hasCR: true },
+  { fdid: 189520, w: 256, h: 1024, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189554, w: 1024, h: 1024, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189519, w: 1024, h: 1024, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 131942, w: 1024, h: 1024, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true, hasCR: true },
+  { fdid: 198585, w: 1024, h: 1024, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189573, w: 1024, h: 1024, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189572, w: 512, h: 1024, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189518, w: 1024, h: 1024, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 249605, w: 256, h: 1024, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189543, w: 512, h: 1024, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189542, w: 512, h: 1024, mode: "RGB", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 242694, w: 512, h: 1024, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189403, w: 256, h: 128, mode: "RGBA", cat: "tree", hasOrig: true, hasNB: true },
+  { fdid: 189799, w: 256, h: 512, mode: "RGB", cat: "fence", hasOrig: true },
+  { fdid: 189800, w: 512, h: 512, mode: "RGB", cat: "fence", hasOrig: true },
+  { fdid: 130279, w: 256, h: 1024, mode: "RGB", cat: "fence", hasOrig: true },
+  { fdid: 189479, w: 256, h: 1024, mode: "RGB", cat: "fence", hasOrig: true },
+  { fdid: 189421, w: 256, h: 512, mode: "RGBA", cat: "fence", hasOrig: true },
+  { fdid: 189422, w: 128, h: 512, mode: "RGB", cat: "fence", hasOrig: true },
+  { fdid: 189487, w: 128, h: 512, mode: "RGB", cat: "fence", hasOrig: true },
+  { fdid: 120181, w: 512, h: 256, mode: "RGB", cat: "other" },
+  { fdid: 123093, w: 1024, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 123160, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 123201, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 123363, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 124303, w: 1024, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 124306, w: 512, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 124429, w: 1024, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 126492, w: 1024, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 132027, w: 1024, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 132031, w: 1024, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 145513, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 189080, w: 128, h: 256, mode: "RGB", cat: "other" },
+  { fdid: 189082, w: 1024, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 189401, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 189404, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 189433, w: 1024, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 189460, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 189514, w: 1024, h: 512, mode: "RGB", cat: "other" },
+  { fdid: 189720, w: 1024, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 189769, w: 512, h: 512, mode: "RGB", cat: "other" },
+  { fdid: 189771, w: 512, h: 512, mode: "RGB", cat: "other" },
+  { fdid: 189773, w: 512, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 189814, w: 1024, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 189822, w: 256, h: 256, mode: "RGBA", cat: "other" },
+  { fdid: 189824, w: 128, h: 128, mode: "RGBA", cat: "other" },
+  { fdid: 189937, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 190367, w: 256, h: 256, mode: "RGBA", cat: "other" },
+  { fdid: 190368, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 190369, w: 256, h: 256, mode: "RGBA", cat: "other" },
+  { fdid: 190386, w: 128, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 190534, w: 1024, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 190610, w: 128, h: 512, mode: "RGB", cat: "other" },
+  { fdid: 190722, w: 256, h: 256, mode: "RGBA", cat: "other" },
+  { fdid: 190732, w: 64, h: 64, mode: "RGBA", cat: "other" },
+  { fdid: 190941, w: 512, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 191275, w: 256, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 197427, w: 1024, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 198183, w: 512, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 198200, w: 1024, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 198260, w: 1024, h: 1024, mode: "RGBA", cat: "other" },
+  { fdid: 198287, w: 512, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 198298, w: 1024, h: 256, mode: "RGB", cat: "other" },
+  { fdid: 198305, w: 128, h: 256, mode: "RGB", cat: "other" },
+  { fdid: 198784, w: 128, h: 128, mode: "RGBA", cat: "other" },
+  { fdid: 199564, w: 1024, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 199633, w: 512, h: 128, mode: "RGB", cat: "other" },
+  { fdid: 199814, w: 256, h: 1024, mode: "RGB", cat: "other" },
+  { fdid: 202026, w: 1024, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 203474, w: 512, h: 512, mode: "RGBA", cat: "other" },
+  { fdid: 220043, w: 128, h: 128, mode: "RGBA", cat: "other" },
+  { fdid: 321364, w: 2048, h: 2048, mode: "RGBA", cat: "other" },
+];
+
+function modelPath(fdid) { return `../models/tex_${fdid}.webp`; }
+function origPath(fdid) { return `../models/originals/tex_${fdid}.webp`; }
+function nbPath(fdid) { return `../models/creative_test/tex_${fdid}_nanobanana.webp`; }
+function crPath(fdid) { return `../models/creative_test/tex_${fdid}_creative.webp`; }
+
+const categories = [
+  { id: "terrain", label: "Terrain", items: TERRAIN },
+  { id: "tree", label: "Trees" },
+  { id: "fence", label: "Fences" },
+  { id: "other", label: "Other" },
+];
+
+let viewMode = "grid";
+
+function buildNav() {
+  const nav = document.getElementById("nav");
+  nav.innerHTML = "";
+  categories.forEach(c => {
+    const count = c.items ? c.items.length : MODELS.filter(m => m.cat === c.id).length;
+    const a = document.createElement("a");
+    a.href = `#${c.id}`;
+    a.innerHTML = `${c.label}<span class="count">${count}</span>`;
+    nav.appendChild(a);
+  });
+
+  const spacer = document.createElement("span");
+  spacer.className = "spacer";
+  nav.appendChild(spacer);
+
+  const toggle = document.createElement("div");
+  toggle.className = "mode-toggle";
+  toggle.innerHTML = `
+    <button id="btn-grid" onclick="setMode('grid')">Grid</button>
+    <button id="btn-compare" onclick="setMode('compare')">Compare</button>`;
+  nav.appendChild(toggle);
+  updateToggle();
+}
+
+function updateToggle() {
+  document.getElementById("btn-grid")?.classList.toggle("active", viewMode === "grid");
+  document.getElementById("btn-compare")?.classList.toggle("active", viewMode === "compare");
+}
+
+function setMode(mode) {
+  viewMode = mode;
+  updateToggle();
+  renderMain();
+}
+
+/* ── Grid builders ── */
+
+function gridTerrainSection() {
+  let html = `<section id="terrain"><h2>Terrain Textures</h2><div class="grid">`;
+  TERRAIN.forEach(t => {
+    html += `
+      <div class="card" onclick="showTerrainCompare(${JSON.stringify(t)})">
+        <img class="thumb" src="${t.v2 || t.up}" loading="lazy" alt="${t.name}">
+        <div class="info"><span class="name">${t.name}</span><span class="size">${t.origSize}px</span></div>
+        <div class="badges">
+          <span class="badge esrgan">ESRGAN 4x</span>
+          ${t.nb ? '<span class="badge nb">Nano Banana</span>' : ''}
+          ${t.v2 ? '<span class="badge v2">v2 Pro</span>' : ''}
+        </div>
+      </div>`;
+  });
+  html += `</div></section>`;
+  return html;
+}
+
+function gridModelSection(cat, label) {
+  const items = MODELS.filter(m => m.cat === cat);
+  let html = `<section id="${cat}"><h2>${label} (${items.length})</h2><div class="grid">`;
+  items.forEach(m => {
+    const badges = [];
+    if (m.hasOrig) badges.push(`<span class="badge esrgan">ESRGAN 4x</span>`);
+    if (m.hasNB) badges.push(`<span class="badge nb">Nano Banana</span>`);
+    if (m.hasCR) badges.push(`<span class="badge creative">Creative</span>`);
+    html += `
+      <div class="card" onclick="showModelCompare(${m.fdid})">
+        <img class="thumb" src="${modelPath(m.fdid)}" loading="lazy" alt="tex_${m.fdid}">
+        <div class="info">
+          <span class="name">tex_${m.fdid}</span>
+          <span class="size">${m.w}x${m.h} ${m.mode}</span>
+        </div>
+        ${badges.length ? `<div class="badges">${badges.join("")}</div>` : ""}
+      </div>`;
+  });
+  html += `</div></section>`;
+  return html;
+}
+
+/* ── Compare (scroll) builders ── */
+
+function colHtml(label, src, highlight) {
+  const cls = highlight ? ' highlight' : '';
+  return `<div class="strip-col">
+    <div class="label${cls}">${label}</div>
+    <img src="${src}" loading="lazy" onclick="zoomImg(this.src)"
+         onload="this.nextElementSibling.textContent=this.naturalWidth+'×'+this.naturalHeight">
+    <div class="dim"></div>
+  </div>`;
+}
+
+function compareTerrainSection() {
+  let html = `<section id="terrain"><h2>Terrain Textures</h2>`;
+  TERRAIN.forEach(t => {
+    let cols = [
+      colHtml("Original", t.orig),
+      colHtml("ESRGAN 4x", t.up),
+    ];
+    if (t.nb) cols.push(colHtml("Nano Banana 2", t.nb));
+    if (t.v2) cols.push(colHtml("v2 Pro", t.v2, true));
+    html += `<div class="compare-strip">
+      <div class="strip-header">
+        <span class="strip-title">${t.name}</span>
+        <span class="strip-meta">${t.origSize}×${t.origSize}</span>
+      </div>
+      <div class="strip-images" style="grid-template-columns: repeat(${cols.length}, 1fr)">
+        ${cols.join("")}
+      </div>
+    </div>`;
+  });
+  html += `</section>`;
+  return html;
+}
+
+function compareModelSection(cat, label) {
+  const items = MODELS.filter(m => m.cat === cat && m.hasOrig);
+  if (!items.length) return "";
+  let html = `<section id="${cat}"><h2>${label} (${items.length})</h2>`;
+  items.forEach(m => {
+    const cols = [];
+    cols.push(colHtml("Original", origPath(m.fdid)));
+    cols.push(colHtml("ESRGAN 4x", modelPath(m.fdid)));
+    if (m.hasCR) cols.push(colHtml("Creative", crPath(m.fdid)));
+    if (m.hasNB) cols.push(colHtml("Nano Banana 2", nbPath(m.fdid), true));
+    const n = cols.length;
+    html += `<div class="compare-strip">
+      <div class="strip-header">
+        <span class="strip-title">tex_${m.fdid}</span>
+        <span class="strip-meta">${m.w}×${m.h} ${m.mode}</span>
+      </div>
+      <div class="strip-images" style="grid-template-columns: repeat(${n}, 1fr)">
+        ${cols.join("")}
+      </div>
+    </div>`;
+  });
+  html += `</section>`;
+  return html;
+}
+
+/* ── Render ── */
+
+function renderMain() {
+  const main = document.getElementById("main");
+  if (viewMode === "grid") {
+    main.innerHTML =
+      gridTerrainSection() +
+      gridModelSection("tree", "Tree Textures") +
+      gridModelSection("fence", "Fence Textures") +
+      gridModelSection("other", "Other Model Textures");
+  } else {
+    main.innerHTML =
+      compareTerrainSection() +
+      compareModelSection("tree", "Tree Textures") +
+      compareModelSection("fence", "Fence Textures");
+  }
+}
+
+function render() {
+  buildNav();
+  renderMain();
+}
+
+/* ── Overlay (single click from grid) ── */
+
+function showTerrainCompare(t) {
+  const el = document.getElementById("overlay-content");
+  let cells = `
+    <div class="compare-cell">
+      <h4>Original</h4>
+      <img src="${t.orig}" onclick="zoomImg(this.src)">
+      <div class="meta">${t.origSize}×${t.origSize}</div>
+    </div>
+    <div class="compare-cell">
+      <h4>ESRGAN 4x</h4>
+      <img src="${t.up}" onclick="zoomImg(this.src)">
+      <div class="meta">${t.upSize}×${t.upSize}</div>
+    </div>`;
+  if (t.nb) {
+    cells += `
+    <div class="compare-cell">
+      <h4>Nano Banana 2</h4>
+      <img src="${t.nb}" onclick="zoomImg(this.src)"
+           onload="this.nextElementSibling.textContent=this.naturalWidth+'×'+this.naturalHeight">
+      <div class="meta"></div>
+    </div>`;
+  }
+  if (t.v2) {
+    cells += `
+    <div class="compare-cell">
+      <h4 class="highlight">v2 Pro</h4>
+      <img src="${t.v2}" onclick="zoomImg(this.src)"
+           onload="this.nextElementSibling.textContent=this.naturalWidth+'×'+this.naturalHeight">
+      <div class="meta"></div>
+    </div>`;
+  }
+  el.innerHTML = `<h3>${t.name}</h3><div class="compare-row">${cells}</div>`;
+  document.getElementById("overlay").classList.add("active");
+}
+
+function showModelCompare(fdid) {
+  const m = MODELS.find(x => x.fdid === fdid);
+  if (!m) return;
+  const el = document.getElementById("overlay-content");
+  let cells = "";
+
+  if (m.hasOrig) {
+    cells += `<div class="compare-cell">
+        <h4>Original</h4>
+        <img src="${origPath(fdid)}" onclick="zoomImg(this.src)">
+        <div class="meta">${m.w}×${m.h}</div>
+      </div>`;
+  }
+  cells += `<div class="compare-cell">
+      <h4>${m.hasOrig ? "ESRGAN 4x" : "Current"}</h4>
+      <img src="${modelPath(fdid)}" onclick="zoomImg(this.src)">
+      <div class="meta">${m.hasOrig ? (m.w*4)+"×"+(m.h*4) : m.w+"×"+m.h}</div>
+    </div>`;
+  if (m.hasCR) {
+    cells += `<div class="compare-cell">
+        <h4>Creative 2x</h4>
+        <img src="${crPath(fdid)}" onclick="zoomImg(this.src)"
+             onload="this.nextElementSibling.textContent=this.naturalWidth+'×'+this.naturalHeight">
+        <div class="meta"></div>
+      </div>`;
+  }
+  if (m.hasNB) {
+    cells += `<div class="compare-cell">
+        <h4 class="highlight">Nano Banana 2</h4>
+        <img src="${nbPath(fdid)}" onclick="zoomImg(this.src)"
+             onload="this.nextElementSibling.textContent=this.naturalWidth+'×'+this.naturalHeight">
+        <div class="meta"></div>
+      </div>`;
+  }
+
+  el.innerHTML = `<h3>tex_${fdid} <span style="color:#667;font-weight:normal">${m.cat}</span></h3><div class="compare-row">${cells}</div>`;
+  document.getElementById("overlay").classList.add("active");
+}
+
+function closeOverlay() { document.getElementById("overlay").classList.remove("active"); }
+document.getElementById("overlay").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeOverlay();
+});
+
+function zoomImg(src) {
+  document.getElementById("zoom-img").src = src;
+  document.getElementById("zoom").classList.add("active");
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    document.getElementById("zoom").classList.remove("active");
+    closeOverlay();
+  }
+});
+
+render();
+</script>
+</body>
+</html>

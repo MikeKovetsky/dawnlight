@@ -1,0 +1,32 @@
+{
+  "base": "elwynngrassbase",
+  "channels": {
+    "R": "elwynndirtbase2",
+    "G": "elwynnrockbasetest2",
+    "B": "elwynncobblestonebase"
+  },
+  "fdids": [
+    187094,
+    187098,
+    187088,
+    187082,
+    187086,
+    188590,
+    188596,
+    188600,
+    188602,
+    188516
+  ],
+  "names": [
+    "unknown_187094",
+    "unknown_187098",
+    "unknown_187088",
+    "unknown_187082",
+    "unknown_187086",
+    "unknown_188590",
+    "unknown_188596",
+    "unknown_188600",
+    "unknown_188602",
+    "unknown_188516"
+  ]
+}
