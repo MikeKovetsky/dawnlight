@@ -4,7 +4,7 @@ AI-upscaled World of Warcraft landscapes in your browser.
 
 **[Live Demo →](https://mikekovetsky.github.io/dawnlight/)**
 
-https://github.com/MikeKovetsky/dawnlight/raw/main/demo/demo.mp4
+https://github.com/user-attachments/assets/b4003175-9439-4a34-959f-67a549d5aea7
 
 | Original | AI-Upscaled |
 |----------|-------------|
