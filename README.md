@@ -1,6 +1,8 @@
 # Dawnlight
 
-AI-upscaled World of Warcraft landscapes in your browser.
+Thousands of beloved games sit dormant because they "look bad" to a new generation of players. Remastering them is prohibitively expensive -- millions of legacy 3D models and textures, some 20 years old, that need to be modernized by hand.
+
+Dawnlight is an AI pipeline that upscales game textures in hours, not months. Point it at a folder of old-school textures, and it produces 4K PBR materials with normal maps, parallax heightmaps, and seamless tiling -- ready to drop back into the game. Stay faithful to the original mood, or reimagine the whole thing in cyberpunk neon. It's your call.
 
 **[Live Demo →](https://mikekovetsky.github.io/dawnlight/)**
 
@@ -10,9 +12,32 @@ https://github.com/user-attachments/assets/b4003175-9439-4a34-959f-67a549d5aea7
 |----------|-------------|
 | ![Original](screenshots/original.webp) | ![Upscaled](screenshots/hero.webp) |
 
-Toggle between original and AI-enhanced textures in real-time. Classic 2004-era textures and low-poly models go through an AI pipeline that produces 4K PBR materials with normal maps, parallax heightmaps, and real-time shadows -- all rendered in Three.js.
+The demo above is a browser reproduction of World of Warcraft's Goldshire, rendered in Three.js. Press **T** to toggle between original and upscaled textures live.
 
 Zones: **Elwynn Forest** (Goldshire) · **Nagrand**
+
+## Upscale any game
+
+Dawnlight works with any game, not just WoW. Extract your textures, run the pipeline, repack.
+
+**Quake 3 Arena** example:
+
+```bash
+# upscale textures from an extracted PK3
+python -m pipeline.upscale_q3 /path/to/extracted_pk3/ \
+  -o /path/to/upscaled/ --workers 6
+
+# repack into a drop-in PK3
+python -m pipeline.pk3_repack /path/to/extracted_pk3/ \
+  --upscaled /path/to/upscaled/ -o DEMO_HD.pk3
+```
+
+**Generic directory** of textures:
+
+```bash
+python -m pipeline.upscale_dir ./textures/ -o ./upscaled/ \
+  --prompt "fantasy RPG" --normals --heights --workers 6
+```
 
 ## How it works
 
@@ -26,39 +51,55 @@ Zones: **Elwynn Forest** (Goldshire) · **Nagrand**
 
 ![Model comparison](screenshots/orc-preview.webp)
 
-**4. Render** -- A Three.js viewer composites everything: multi-texture splatting with 4-layer blending, shadow mapping, parallax displacement, GPU-instanced grass (120K blades with wind), procedural vegetation scatter, and water planes. Press **T** to toggle between original and upscaled textures live.
+**4. Render** -- A Three.js viewer composites everything: multi-texture splatting with 4-layer blending, shadow mapping, parallax displacement, GPU-instanced grass (120K blades with wind), procedural vegetation scatter, and water planes.
 
 <details>
-<summary>Developer Setup</summary>
+<summary>Pipeline diagram</summary>
 
-### Run locally
+```
+Game assets ──► Extract ──► Texture files
+                                 │
+                  ┌──────────────┼──────────────┐
+                  ▼              ▼              ▼
+             ADT Parser    Nano Banana Pro   M2 Parser
+                  │        (fal.ai, 4K)         │
+                  ▼              │              ▼
+             terrain JSON       ▼          model JSON
+                  │         PBR maps            │
+                  │     (normal, height)        │
+                  └──────────────┼──────────────┘
+                                 ▼
+                           Three.js Viewer
+                         or repack into game
+```
+
+</details>
+
+## Setup
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+Create `.env` with `FAL_KEY=your_key` for AI upscaling.
+
+Run the viewer locally:
+
+```bash
 cd viewer && python -m http.server 8081
 ```
 
-### Upscale any game's textures
+<details>
+<summary>WoW-specific commands</summary>
 
-Create `.env` with `FAL_KEY=your_key`, then:
-
-```bash
-python -m pipeline.upscale_dir ./textures/ -o ./upscaled/ \
-  --prompt "fantasy RPG" --normals --heights --workers 6
-```
-
-Use `--normals-dir` / `--heights-dir` to write PBR maps to separate
-directories instead of alongside the diffuse textures.
-
-For WoW zones there's a shortcut that picks the right prompts and output
-layout automatically:
+### Upscale a WoW zone
 
 ```bash
 python -m pipeline.upscale_zone nagrand
 ```
 
-### Add a WoW zone
+### Add a new zone
 
 ```bash
 python -m extract.download adt --tile 17,35 --map expansion01
@@ -66,26 +107,6 @@ python -m pipeline.adt assets/adt/expansion01_17_35.adt
 python -m pipeline.obj0 assets/adt/expansion01_17_35_obj0.adt
 ```
 
+</details>
+
 See [docs/](docs/) for architecture, progress, and learnings.
-
-</details>
-
-<details>
-<summary>Pipeline</summary>
-
-```
-WoW CDN ──► Download ──► BLP/ADT/M2 files
-                              │
-             ┌────────────────┼────────────────┐
-             ▼                ▼                ▼
-        ADT Parser       Texture Conv      M2 Parser
-             │                │                │
-             ▼                ▼                ▼
-        terrain JSON     Nano Banana Pro    model JSON
-             │           (fal.ai, 4K)          │
-             └────────────────┼────────────────┘
-                              ▼
-                        Three.js Viewer
-```
-
-</details>
