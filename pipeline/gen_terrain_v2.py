@@ -1,26 +1,15 @@
 """Enhance terrain textures via fal.ai Nano Banana Pro.
 
-Not a simple upscale — uses creative prompts to add realistic detail
-while keeping the World of Warcraft hand-painted art style.
-Outputs to viewer/textures/v2/ at 4K resolution.
-
-Seamless tiling: feeds the AI a 2x2 tiled input so it sees the
-tiling pattern, then crops back the center tile at full resolution.
+WoW-specific terrain prompts. Delegates actual upscaling to
+pipeline.core.upscale_texture() which handles seamless tiling internally.
 """
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from io import BytesIO
 from pathlib import Path
 
-import fal_client
-import numpy as np
-import requests
-from PIL import Image
-
 from pipeline.config import ensure_dirs
-
-NANO_PRO = "fal-ai/nano-banana-pro/edit"
+from pipeline.core import upscale_texture
 
 ROOT = Path(__file__).resolve().parent.parent
 TERRAIN_SRC = ROOT / "viewer" / "textures" / "original"
@@ -58,67 +47,6 @@ TERRAIN_PROMPTS = {
 }
 
 
-def tile_2x2(img):
-    """Tile an image into a 2x2 grid so the AI sees the tiling pattern."""
-    w, h = img.size
-    tiled = Image.new(img.mode, (w * 2, h * 2))
-    for dx in range(2):
-        for dy in range(2):
-            tiled.paste(img, (dx * w, dy * h))
-    return tiled
-
-
-def make_seamless(img, blend_pct=0.20):
-    """Cross-blend edges to guarantee seamless tiling.
-
-    Rolls the image by half in both axes, then blends the rolled and
-    original versions using a smooth gradient mask.  The result tiles
-    perfectly because the edges come from what was the interior.
-    """
-    arr = np.array(img, dtype=np.float32)
-    h, w = arr.shape[:2]
-    bw = int(w * blend_pct)
-    bh = int(h * blend_pct)
-
-    rolled = np.roll(np.roll(arr, w // 2, axis=1), h // 2, axis=0)
-
-    mx = np.ones(w, dtype=np.float32)
-    mx[:bw] = np.linspace(0, 1, bw)
-    mx[-bw:] = np.linspace(1, 0, bw)
-
-    my = np.ones(h, dtype=np.float32)
-    my[:bh] = np.linspace(0, 1, bh)
-    my[-bh:] = np.linspace(1, 0, bh)
-
-    mask = np.outer(my, mx)
-    if arr.ndim == 3:
-        mask = mask[:, :, np.newaxis]
-
-    out = arr * mask + rolled * (1.0 - mask)
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
-
-
-def nano_pro_enhance(prompt, src_path, resolution="4K"):
-    img_url = fal_client.upload_file(str(src_path))
-    result = fal_client.subscribe(
-        NANO_PRO,
-        arguments={
-            "prompt": prompt,
-            "image_urls": [img_url],
-            "resolution": resolution,
-            "aspect_ratio": "1:1",
-            "output_format": "png",
-            "num_images": 1,
-            "safety_tolerance": "6",
-        },
-        with_logs=True,
-    )
-    url = result["images"][0]["url"]
-    resp = requests.get(url, timeout=180)
-    resp.raise_for_status()
-    return Image.open(BytesIO(resp.content))
-
-
 def enhance_terrain(name, resolution="4K", skip_existing=True):
     TERRAIN_OUT.mkdir(parents=True, exist_ok=True)
     out = TERRAIN_OUT / f"{name}.webp"
@@ -136,28 +64,9 @@ def enhance_terrain(name, resolution="4K", skip_existing=True):
         print(f"  SKIP: no prompt defined for {name}")
         return None
 
-    img = Image.open(src).convert("RGB")
-    w, h = img.size
-    print(f"  {name}: {w}x{h} -> Nano Banana Pro @ {resolution}")
-    print(f"    prompt: {prompt[:80]}...")
-
-    tiled = tile_2x2(img)
-    tmp = TERRAIN_OUT / f"_tmp_{name}.png"
-    tiled.save(tmp)
-    print(f"    tiled 2x2 -> {tiled.size[0]}x{tiled.size[1]}, sending to AI...")
-
-    raw = nano_pro_enhance(prompt, tmp, resolution=resolution)
-    tmp.unlink(missing_ok=True)
-
-    rw, rh = raw.size
-    cx, cy = rw // 4, rh // 4
-    cw, ch = rw // 2, rh // 2
-    center = raw.crop((cx, cy, cx + cw, cy + ch))
-    print(f"    cropped center tile: {center.size[0]}x{center.size[1]}")
-
-    result = make_seamless(center)
-    result.save(out)
-    print(f"    saved {out.name} ({result.size[0]}x{result.size[1]}) [seamless]")
+    print(f"  {name}: -> Nano Banana Pro @ {resolution}")
+    upscale_texture(src, out, prompt, resolution=resolution, seamless=True)
+    print(f"  saved {out.name} [seamless]")
     return out
 
 

@@ -235,9 +235,9 @@ def download_raw(fdid: int, out_path: Path) -> bool:
     return False
 
 
-def find_adt_fdids(tile_x: int, tile_y: int) -> dict[str, tuple[int, str]]:
+def find_adt_fdids(tile_x: int, tile_y: int, map_name: str = "azeroth") -> dict[str, tuple[int, str]]:
     entries = load_listfile()
-    prefix = f"world/maps/azeroth/azeroth_{tile_x}_{tile_y}"
+    prefix = f"world/maps/{map_name}/{map_name}_{tile_x}_{tile_y}"
     result = {}
     for fdid, path in entries:
         if path.startswith(prefix):
@@ -251,10 +251,10 @@ def find_adt_fdids(tile_x: int, tile_y: int) -> dict[str, tuple[int, str]]:
     return result
 
 
-def download_adt_tile(tile_x: int, tile_y: int) -> dict[str, Path]:
-    fdids = find_adt_fdids(tile_x, tile_y)
+def download_adt_tile(tile_x: int, tile_y: int, map_name: str = "azeroth") -> dict[str, Path]:
+    fdids = find_adt_fdids(tile_x, tile_y, map_name)
     if not fdids:
-        print(f"  No ADT files found for tile ({tile_x}, {tile_y})")
+        print(f"  No ADT files found for tile ({tile_x}, {tile_y}) on map '{map_name}'")
         return {}
 
     paths = {}
@@ -263,7 +263,7 @@ def download_adt_tile(tile_x: int, tile_y: int) -> dict[str, Path]:
             continue
         fdid, filepath = fdids[kind]
         suffix = f"_{kind}" if kind != "root" else ""
-        out = ADT_DIR / f"azeroth_{tile_x}_{tile_y}{suffix}.adt"
+        out = ADT_DIR / f"{map_name}_{tile_x}_{tile_y}{suffix}.adt"
         print(f"  [{kind}] fdid={fdid}", end=" ")
         if download_raw(fdid, out):
             print(f"-> {out.name} ({out.stat().st_size // 1024} KB)")
@@ -273,6 +273,24 @@ def download_adt_tile(tile_x: int, tile_y: int) -> dict[str, Path]:
     return paths
 
 
+def download_adt_tiles(tiles: list[tuple[int, int]], map_name: str = "azeroth",
+                       label: str = ""):
+    ADT_DIR.mkdir(parents=True, exist_ok=True)
+    desc = label or map_name
+    print(f"Downloading {len(tiles)} ADT tiles for {desc}...")
+
+    all_paths = {}
+    for tx, ty in tiles:
+        print(f"\nTile ({tx}, {ty}):")
+        paths = download_adt_tile(tx, ty, map_name)
+        if paths:
+            all_paths[(tx, ty)] = paths
+        time.sleep(0.3)
+
+    print(f"\nDone: {len(all_paths)} tiles downloaded to {ADT_DIR}")
+    return all_paths
+
+
 def download_elwynn_adt(tiles: list[tuple[int, int]] | None = None):
     if tiles is None:
         tiles = [
@@ -280,20 +298,67 @@ def download_elwynn_adt(tiles: list[tuple[int, int]] | None = None):
             for x in ELWYNN_ADT_RANGE["x"]
             for y in ELWYNN_ADT_RANGE["y"]
         ]
+    return download_adt_tiles(tiles, map_name="azeroth", label="Elwynn Forest")
 
-    ADT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading {len(tiles)} ADT tiles for Elwynn Forest...")
 
-    all_paths = {}
-    for tx, ty in tiles:
-        print(f"\nTile ({tx}, {ty}):")
-        paths = download_adt_tile(tx, ty)
-        if paths:
-            all_paths[(tx, ty)] = paths
+def download_adt_textures(tile_x: int, tile_y: int, map_name: str = "azeroth",
+                          out_dir: Path = None):
+    """Download all textures referenced by an ADT tile's tex0 file."""
+    import struct
+    tex0_path = ADT_DIR / f"{map_name}_{tile_x}_{tile_y}_tex0.adt"
+    if not tex0_path.exists():
+        print(f"  tex0 not found: {tex0_path}. Download the tile first.")
+        return []
+
+    data = tex0_path.read_bytes()
+    fdids = []
+    pos = 0
+    while pos < len(data) - 8:
+        magic = data[pos:pos + 4][::-1].decode("ascii", errors="replace")
+        size = struct.unpack_from("<I", data, pos + 4)[0]
+        if magic == "MDID":
+            n = size // 4
+            fdids = list(struct.unpack_from(f"<{n}I", data, pos + 8))
+            break
+        pos = pos + 8 + size
+
+    if not fdids:
+        print("  No texture FDIDs found in MDID chunk")
+        return []
+
+    unique = sorted(set(f for f in fdids if f > 0))
+    if out_dir is None:
+        out_dir = ASSETS / "input"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"  Found {len(unique)} unique texture FDIDs in tile ({tile_x},{tile_y})")
+    ok, fail = 0, 0
+    results = []
+    for i, fdid in enumerate(unique, 1):
+        png = out_dir / f"tex_{fdid}.png"
+        if png.exists():
+            print(f"  [{i}/{len(unique)}] tex_{fdid} (cached)")
+            results.append(png)
+            ok += 1
+            continue
+        blp = download_by_fdid(fdid)
+        if blp:
+            try:
+                img = Image.open(blp)
+                img.save(png, "PNG")
+                print(f"  [{i}/{len(unique)}] tex_{fdid} ({img.size[0]}x{img.size[1]})")
+                results.append(png)
+                ok += 1
+            except Exception as e:
+                print(f"  [{i}/{len(unique)}] tex_{fdid} CONVERT ERROR: {e}")
+                fail += 1
+        else:
+            print(f"  [{i}/{len(unique)}] tex_{fdid} DOWNLOAD FAILED")
+            fail += 1
         time.sleep(0.3)
 
-    print(f"\nDone: {len(all_paths)} tiles downloaded to {ADT_DIR}")
-    return all_paths
+    print(f"\n  Textures: {ok} ok, {fail} failed")
+    return results
 
 
 # -- BLP conversion --
@@ -345,8 +410,14 @@ def main():
 
     sub.add_parser("elwynn", help="Download all known Elwynn Forest ground textures")
 
-    adt_p = sub.add_parser("adt", help="Download ADT terrain tiles for Elwynn Forest")
+    adt_p = sub.add_parser("adt", help="Download ADT terrain tiles")
     adt_p.add_argument("--tile", help="Single tile as X,Y (e.g. 32,49)", default=None)
+    adt_p.add_argument("--map", default="azeroth", help="Map name (default: azeroth)")
+
+    at = sub.add_parser("adt-textures", help="Download textures referenced by an ADT tile")
+    at.add_argument("--tile", required=True, help="Tile as X,Y (e.g. 38,13)")
+    at.add_argument("--map", default="azeroth", help="Map name (default: azeroth)")
+    at.add_argument("-o", "--output", help="Output directory for PNGs")
 
     sub.add_parser("list", help="List known Elwynn texture paths")
 
@@ -387,9 +458,15 @@ def main():
         fetch_listfile()
         if args.tile:
             tx, ty = (int(v) for v in args.tile.split(","))
-            download_elwynn_adt([(tx, ty)])
+            download_adt_tiles([(tx, ty)], map_name=args.map)
         else:
             download_elwynn_adt()
+
+    elif args.cmd == "adt-textures":
+        fetch_listfile()
+        tx, ty = (int(v) for v in args.tile.split(","))
+        out = Path(args.output) if args.output else None
+        download_adt_textures(tx, ty, map_name=args.map, out_dir=out)
 
     elif args.cmd == "list":
         print("Known Elwynn Forest ground texture paths:")

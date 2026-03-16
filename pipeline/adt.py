@@ -269,8 +269,54 @@ def parse_mh2o(data: bytes) -> list[dict]:
 # -- splatmap generation --
 
 
-def generate_splatmap(tex_chunks: list[dict], tex_fdids: list[int], out_dir: Path, tile_name: str):
-    tex_names = [FDID_TO_DIFFUSE.get(fdid, f"unknown_{fdid}") for fdid in tex_fdids]
+def _auto_assign_channels(tex_chunks, tex_fdids):
+    """Pick base + 3 channel textures by usage frequency across all chunks."""
+    from collections import Counter
+    usage = Counter()
+    base_usage = Counter()
+    for tc in tex_chunks:
+        if tc["layers"]:
+            base_tid = tc["layers"][0]["tex_id"]
+            if base_tid < len(tex_fdids):
+                base_usage[tex_fdids[base_tid]] += 1
+            for layer in tc["layers"]:
+                tid = layer["tex_id"]
+                if tid < len(tex_fdids):
+                    usage[tex_fdids[tid]] += 1
+
+    base_fdid = base_usage.most_common(1)[0][0] if base_usage else (tex_fdids[0] if tex_fdids else 0)
+    others = [fdid for fdid, _ in usage.most_common() if fdid != base_fdid]
+    chan_fdids = others[:3]
+    while len(chan_fdids) < 3:
+        chan_fdids.append(0)
+
+    return base_fdid, chan_fdids
+
+
+def generate_splatmap(tex_chunks, tex_fdids, out_dir, tile_name,
+                      fdid_names=None, splat_channels=None, splat_base=None):
+    has_elwynn = any(fdid in FDID_TO_DIFFUSE for fdid in tex_fdids)
+
+    if fdid_names is None:
+        fdid_names = {fdid: FDID_TO_DIFFUSE.get(fdid, f"tex_{fdid}") for fdid in tex_fdids}
+    tex_names = [fdid_names.get(fdid, f"tex_{fdid}") for fdid in tex_fdids]
+
+    if has_elwynn and splat_channels is None:
+        splat_channels_map = SPLAT_CHANNELS
+        splat_base_name = SPLAT_BASE
+        splat_tex_names = list(SPLAT_TEX_NAMES)
+    else:
+        base_fdid, chan_fdids = _auto_assign_channels(tex_chunks, tex_fdids)
+        splat_base_name = fdid_names.get(base_fdid, f"tex_{base_fdid}")
+        splat_tex_names = [fdid_names.get(f, f"tex_{f}") for f in chan_fdids]
+        splat_channels_map = {}
+        for i, name in enumerate(splat_tex_names):
+            splat_channels_map[name] = i
+
+    if splat_base is not None:
+        splat_base_name = splat_base
+    if splat_channels is not None:
+        splat_channels_map = splat_channels
 
     splat_size = 16 * ALPHA_MAP_SIZE
     img = Image.new("RGB", (splat_size, splat_size), (0, 0, 0))
@@ -283,8 +329,8 @@ def generate_splatmap(tex_chunks: list[dict], tex_fdids: list[int], out_dir: Pat
 
         channels = [0] * (ALPHA_PIXELS * 3)
 
-        base_tex = tex_names[layers[0]["tex_id"]] if layers else SPLAT_BASE
-        base_chan = SPLAT_CHANNELS.get(base_tex, -1)
+        base_tex = tex_names[layers[0]["tex_id"]] if layers else splat_base_name
+        base_chan = splat_channels_map.get(base_tex, -1)
         if base_chan >= 0:
             for i in range(ALPHA_PIXELS):
                 channels[i * 3 + base_chan] = 255
@@ -292,8 +338,8 @@ def generate_splatmap(tex_chunks: list[dict], tex_fdids: list[int], out_dir: Pat
         for li, layer in enumerate(layers[1:]):
             if li >= len(alphas):
                 break
-            layer_tex = tex_names[layer["tex_id"]] if layer["tex_id"] < len(tex_names) else SPLAT_BASE
-            chan = SPLAT_CHANNELS.get(layer_tex, -1)
+            layer_tex = tex_names[layer["tex_id"]] if layer["tex_id"] < len(tex_names) else splat_base_name
+            chan = splat_channels_map.get(layer_tex, -1)
             if chan < 0:
                 continue
             alpha = alphas[li]
@@ -320,11 +366,11 @@ def generate_splatmap(tex_chunks: list[dict], tex_fdids: list[int], out_dir: Pat
     splat_path = out_dir / f"{tile_name}_splatmap.webp"
     img.save(splat_path)
     print(f"  Splatmap: {splat_path.name} ({splat_size}x{splat_size})")
-    print(f"  Channels: R={SPLAT_TEX_NAMES[0]}, G={SPLAT_TEX_NAMES[1]}, B={SPLAT_TEX_NAMES[2]}, base={SPLAT_BASE}")
+    print(f"  Channels: R={splat_tex_names[0]}, G={splat_tex_names[1]}, B={splat_tex_names[2]}, base={splat_base_name}")
 
     texmap = {
-        "base": SPLAT_BASE,
-        "channels": {"R": SPLAT_TEX_NAMES[0], "G": SPLAT_TEX_NAMES[1], "B": SPLAT_TEX_NAMES[2]},
+        "base": splat_base_name,
+        "channels": {"R": splat_tex_names[0], "G": splat_tex_names[1], "B": splat_tex_names[2]},
         "fdids": tex_fdids,
         "names": tex_names,
     }

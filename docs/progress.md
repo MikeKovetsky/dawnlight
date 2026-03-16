@@ -136,17 +136,14 @@ Multiple rendering fixes discovered through visual testing.
 - **WMO texture tiling**: WMO UVs go outside 0-1 range (25% of vertices). Added `RepeatWrapping` to WMO textures to enable proper tiling instead of edge clamping.
 - **WMO untextured faces**: Submeshes with `texFdid=0` now get a neutral fallback color instead of being skipped, preventing invisible geometry.
 
-## Phase 12 - Full Goldshire with NPCs
+## Phase 12 - Full Goldshire
 
-Expanded the viewer to show the complete Goldshire town with buildings, props, and NPC creatures.
+Expanded the viewer to show the complete Goldshire town with buildings and props.
 
 - Added **tiles 31_49 and 31_50** to provide terrain under buildings at the tile 32 boundary (Goldshire sits right at the edge)
 - Downloaded **4 additional WMOs**: Goldshire Inn (15K verts), blacksmith, stable, goldmine
-- Downloaded **8 creature M2 models**: human male/female, horse, chicken, cat, wolf, boar, deer
-- Fixed **creature replaceable textures**: creature M2 models use `texFdid=0` (runtime-assigned skins). Patched model JSONs with actual skin texture FDIDs (wolf black, brown boar, chicken, black cat, deer, brown horse, human skin)
-- Placed **28 static NPCs** at approximate Goldshire spawn locations via hardcoded `GOLDSHIRE_NPCS` array
 - Downloaded **10 village prop M2 models**: tent, wagon, lampposts, stone fences, gryphon roost, flagpoles, crates, training dummy, harness
-- Total scene: **20 ADT tiles**, **17 WMO buildings**, **62 M2 models**, **28 NPCs**, **6 tiles rendered** (Goldshire area)
+- Total scene: **20 ADT tiles**, **17 WMO buildings**, **62 M2 models**, **6 tiles rendered** (Goldshire area)
 
 ## Phase 13 - Nano Banana 2 Upscaling
 

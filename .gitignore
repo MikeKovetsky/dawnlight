@@ -215,6 +215,6 @@ assets/adt/
 assets/terrain/
 assets/listfile.csv
 
-# Upscaled textures – originals are PNGs (don't commit them)
-viewer/wmo/creative_test/*.png
-viewer/models/creative_test/*.png
+# Upscaled textures (large, regenerated from originals)
+viewer/wmo/creative_test/
+viewer/models/creative_test/

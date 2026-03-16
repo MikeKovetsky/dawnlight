@@ -1,21 +1,17 @@
-"""Generate improved tree/bush textures via fal.ai Nano Banana Pro.
+"""Generate improved tree/bush/prop/WMO textures via fal.ai Nano Banana Pro.
 
-Uses 2x2 tiling + center-crop + cross-blend to ensure seamless output.
+WoW-specific texture IDs and prompts. Delegates actual upscaling to
+pipeline.core.upscale_texture().
 """
 
-import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from io import BytesIO
-from math import gcd
 from pathlib import Path
 
-import fal_client
 import numpy as np
-import requests
-from PIL import Image, ImageFilter
+from PIL import Image
 
 from pipeline.config import ensure_dirs
-from pipeline.gen_terrain_v2 import make_seamless, tile_2x2
+from pipeline.core import upscale_texture
 
 ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = ROOT / "viewer" / "models"
@@ -25,8 +21,6 @@ OUT_DIR = MODELS_DIR / "creative_test"
 WMO_DIR = ROOT / "viewer" / "wmo"
 WMO_ORIGINALS = WMO_DIR / "originals"
 WMO_OUT = WMO_DIR / "creative_test"
-
-NANO_PRO = "fal-ai/nano-banana-pro/edit"
 
 BARK_FDIDS = {
     464350: {"desc": "warm oak bark, rich brown", "w": 2048, "h": 2048},
@@ -100,226 +94,6 @@ PROP_FDIDS = {
     203474: "wetland grass blades",
 }
 
-ASPECT_MAP = {
-    (1, 1): "1:1", (4, 3): "4:3", (3, 4): "3:4",
-    (16, 9): "16:9", (9, 16): "9:16", (3, 2): "3:2", (2, 3): "2:3",
-    (5, 4): "5:4", (4, 5): "4:5", (21, 9): "21:9",
-    (1, 2): "9:16", (2, 1): "16:9",
-    (1, 4): "9:16", (4, 1): "16:9",
-}
-
-
-def guess_aspect(w, h):
-    g = gcd(w, h)
-    ratio = (w // g, h // g)
-    return ASPECT_MAP.get(ratio, "auto")
-
-
-def nano_pro_edit(prompt, ref_img_path, resolution="2K", aspect="auto"):
-    img_url = fal_client.upload_file(str(ref_img_path))
-    result = fal_client.subscribe(
-        NANO_PRO,
-        arguments={
-            "prompt": prompt,
-            "image_urls": [img_url],
-            "resolution": resolution,
-            "aspect_ratio": aspect,
-            "output_format": "png",
-            "num_images": 1,
-            "safety_tolerance": "6",
-        },
-        with_logs=True,
-    )
-    url = result["images"][0]["url"]
-    resp = requests.get(url, timeout=180)
-    resp.raise_for_status()
-    return Image.open(BytesIO(resp.content))
-
-
-def load_orig(fdid):
-    p = ORIGINALS_DIR / f"tex_{fdid}.webp"
-    if not p.exists():
-        p = MODELS_DIR / f"tex_{fdid}.webp"
-    return Image.open(p) if p.exists() else None
-
-
-def seamless_enhance(orig_rgb, prompt, aspect, fdid, label, tmp_prefix):
-    """Tile 2x2, send to AI, crop center, cross-blend edges."""
-    tiled = tile_2x2(orig_rgb)
-    tmp = OUT_DIR / f"_tmp_{tmp_prefix}_{fdid}.png"
-    tiled.save(tmp)
-    print(f"    tiled 2x2 -> {tiled.size[0]}x{tiled.size[1]}")
-
-    img = nano_pro_edit(prompt, tmp, resolution="4K", aspect=aspect)
-    tmp.unlink(missing_ok=True)
-    img = img.convert("RGB")
-
-    rw, rh = img.size
-    cx, cy = rw // 4, rh // 4
-    cw, ch = rw // 2, rh // 2
-    center = img.crop((cx, cy, cx + cw, cy + ch))
-    result = make_seamless(center, blend_pct=0.35)
-    print(f"    cropped center {center.size[0]}x{center.size[1]} [seamless]")
-    return result
-
-
-def smooth_patches(img, radius=12):
-    """Blend with a blurred copy to reduce patch-to-patch brightness jumps."""
-    arr = np.array(img, dtype=np.float32)
-    blurred = np.array(img.filter(ImageFilter.GaussianBlur(radius)), dtype=np.float32)
-    out = arr * 0.85 + blurred * 0.15
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
-
-
-def gen_bark(fdid, info, skip_existing=True):
-    out = OUT_DIR / f"tex_{fdid}_nanobanana.webp"
-    if skip_existing and out.exists():
-        print(f"  SKIP bark {fdid}: already exists")
-        return out
-
-    orig = load_orig(fdid)
-    if not orig:
-        print(f"  SKIP bark {fdid}: original not found")
-        return None
-
-    prompt = (
-        f"Enhance this {info['desc']} tree bark game texture to higher quality. "
-        "Add richer wood grain detail, deeper crevices, subtle moss and knots. "
-        "Keep uniform brightness and consistent style across the ENTIRE texture. "
-        "No patchy regions or uneven lighting. "
-        "Stylized World of Warcraft aesthetic, painterly, not photorealistic."
-    )
-
-    tw, th = info["w"], info["h"]
-    tmp = OUT_DIR / f"_tmp_bark_{fdid}.png"
-    orig.convert("RGB").save(tmp)
-    aspect = guess_aspect(tw, th)
-
-    print(f"  Generating bark {fdid} ({tw}x{th} aspect={aspect})...")
-    img = nano_pro_edit(prompt, tmp, resolution="4K", aspect=aspect)
-    tmp.unlink(missing_ok=True)
-    img = img.convert("RGB")
-    img = smooth_patches(img)
-
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    img.save(out)
-    print(f"  Saved bark {fdid}: {out.name} ({img.size[0]}x{img.size[1]})")
-    return out
-
-
-def sharpen_alpha(alpha_img, threshold=80):
-    """Make alpha crisper: push values towards 0 or 255."""
-    arr = np.array(alpha_img, dtype=np.float32)
-    arr = np.where(arr < threshold, arr * 0.3, np.minimum(arr * 1.3, 255))
-    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-
-
-def bleed_edges(rgb_img, alpha_img, iterations=8):
-    """Spread opaque pixel colors into transparent border areas.
-
-    Prevents white/bright fringing at alpha-tested edges by ensuring
-    the RGB content under semi-transparent pixels matches nearby leaves.
-    """
-    rgb = np.array(rgb_img, dtype=np.float32)
-    a = np.array(alpha_img, dtype=np.float32)
-    opaque = a > 60
-
-    for _ in range(iterations):
-        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            shifted_opaque = np.roll(np.roll(opaque, dy, axis=0), dx, axis=1)
-            shifted_rgb = np.roll(np.roll(rgb, dy, axis=0), dx, axis=1)
-            fill = ~opaque & shifted_opaque
-            rgb[fill] = shifted_rgb[fill]
-            opaque |= fill
-
-    return Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8))
-
-
-def gen_leaf(fdid, info, skip_existing=True):
-    out = OUT_DIR / f"tex_{fdid}_nanobanana.webp"
-    if skip_existing and out.exists():
-        print(f"  SKIP leaf {fdid}: already exists")
-        return out
-
-    orig_path = ORIGINALS_DIR / f"tex_{fdid}.webp"
-    if not orig_path.exists():
-        orig_path = MODELS_DIR / f"tex_{fdid}.webp"
-    if not orig_path.exists():
-        print(f"  SKIP leaf {fdid}: original not found")
-        return None
-
-    orig = Image.open(orig_path).convert("RGBA")
-    alpha = orig.split()[3]
-
-    prompt = (
-        f"Enhance this {info['desc']} tree foliage game texture to higher quality. "
-        "Add richer individual leaf detail and color variation. "
-        "Keep uniform style across the entire texture, preserve transparent areas as-is. "
-        "Do NOT fill in empty/dark regions. "
-        "Stylized World of Warcraft aesthetic, painterly, not photorealistic."
-    )
-
-    tw, th = info["w"], info["h"]
-    tmp = OUT_DIR / f"_tmp_leaf_{fdid}.png"
-    orig.convert("RGB").save(tmp)
-    aspect = guess_aspect(tw, th)
-
-    print(f"  Generating leaf {fdid} ({tw}x{th}): {info['desc']}...")
-    img = nano_pro_edit(prompt, tmp, resolution="4K", aspect=aspect)
-    tmp.unlink(missing_ok=True)
-    img = img.convert("RGB")
-
-    up_alpha = sharpen_alpha(alpha.resize(img.size, Image.LANCZOS))
-    img = bleed_edges(img, up_alpha)
-    result = Image.merge("RGBA", (*img.split(), up_alpha))
-
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    result.save(out)
-    print(f"  Saved leaf {fdid}: {out.name} ({result.size[0]}x{result.size[1]})")
-    return out
-
-
-def gen_prop(fdid, desc, skip_existing=True):
-    out = OUT_DIR / f"tex_{fdid}_nanobanana.webp"
-    if skip_existing and out.exists():
-        print(f"  SKIP prop {fdid}: already exists")
-        return out
-
-    orig = load_orig(fdid)
-    if not orig:
-        print(f"  SKIP prop {fdid}: original not found")
-        return None
-
-    has_alpha = orig.mode == "RGBA"
-    alpha = orig.split()[3] if has_alpha else None
-    w, h = orig.size
-
-    prompt = (
-        f"Dramatically enhance this {desc} game texture. "
-        "Keep the same layout but add much richer surface detail: "
-        "wood grain, metal rivets, stone cracks, fabric weave as appropriate. "
-        "Make it look like a high-budget AAA fantasy RPG texture with painterly brushstrokes. "
-        "4x the surface detail. Stylized World of Warcraft aesthetic, not photorealistic."
-    )
-
-    aspect = guess_aspect(w, h)
-    print(f"  Generating prop {fdid} ({w}x{h}): {desc}...")
-
-    img = seamless_enhance(orig.convert("RGB"), prompt, aspect, fdid, "prop", "prop")
-
-    if has_alpha and alpha is not None:
-        up_alpha = sharpen_alpha(alpha.resize(img.size, Image.LANCZOS))
-        img = bleed_edges(img, up_alpha)
-        result = Image.merge("RGBA", (*img.split(), up_alpha))
-    else:
-        result = img
-
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    result.save(out)
-    print(f"  Saved prop {fdid}: {out.name} ({result.size[0]}x{result.size[1]})")
-    return out
-
-
 WMO_FDIDS = [
     126610, 126611, 126998, 126999, 127000, 127001, 127002, 127003, 127004, 127005, 127006,
     127093, 127095, 127100, 127187, 127212, 127216, 127221, 127280, 127299, 127301, 127322,
@@ -337,24 +111,128 @@ WMO_FDIDS = [
 ]
 
 
+# -- WoW-specific alpha helpers (leaf/prop fringe prevention) ---------------
+
+def _sharpen_alpha(alpha_img, threshold=80):
+    arr = np.array(alpha_img, dtype=np.float32)
+    arr = np.where(arr < threshold, arr * 0.3, np.minimum(arr * 1.3, 255))
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+
+def _bleed_edges(rgb_img, alpha_img, iterations=8):
+    """Spread opaque pixel colors into transparent borders to prevent fringing."""
+    rgb = np.array(rgb_img, dtype=np.float32)
+    a = np.array(alpha_img, dtype=np.float32)
+    opaque = a > 60
+    for _ in range(iterations):
+        for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            shifted_opaque = np.roll(np.roll(opaque, dy, axis=0), dx, axis=1)
+            shifted_rgb = np.roll(np.roll(rgb, dy, axis=0), dx, axis=1)
+            fill = ~opaque & shifted_opaque
+            rgb[fill] = shifted_rgb[fill]
+            opaque |= fill
+    return Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8))
+
+
+def _post_alpha(out_path):
+    """Apply sharpen + bleed to an RGBA texture saved by core."""
+    result = Image.open(out_path).convert("RGBA")
+    rgb, alpha = result.convert("RGB"), result.split()[3]
+    alpha = _sharpen_alpha(alpha)
+    rgb = _bleed_edges(rgb, alpha)
+    Image.merge("RGBA", (*rgb.split(), alpha)).save(out_path)
+
+
+def _find_orig(fdid):
+    for d in (ORIGINALS_DIR, MODELS_DIR):
+        p = d / f"tex_{fdid}.webp"
+        if p.exists():
+            return p
+    return None
+
+
+# -- Generators per texture category ----------------------------------------
+
+def gen_bark(fdid, info, skip_existing=True):
+    out = OUT_DIR / f"tex_{fdid}_nanobanana.webp"
+    if skip_existing and out.exists():
+        print(f"  SKIP bark {fdid}: already exists")
+        return out
+    src = _find_orig(fdid)
+    if not src:
+        print(f"  SKIP bark {fdid}: original not found")
+        return None
+    prompt = (
+        f"Enhance this {info['desc']} tree bark game texture to higher quality. "
+        "Add richer wood grain detail, deeper crevices, subtle moss and knots. "
+        "Keep uniform brightness and consistent style across the ENTIRE texture. "
+        "No patchy regions or uneven lighting. "
+        "Stylized World of Warcraft aesthetic, painterly, not photorealistic."
+    )
+    print(f"  Generating bark {fdid}...")
+    upscale_texture(src, out, prompt, resolution="4K", seamless=False)
+    print(f"  Saved bark {fdid}: {out.name}")
+    return out
+
+
+def gen_leaf(fdid, info, skip_existing=True):
+    out = OUT_DIR / f"tex_{fdid}_nanobanana.webp"
+    if skip_existing and out.exists():
+        print(f"  SKIP leaf {fdid}: already exists")
+        return out
+    src = _find_orig(fdid)
+    if not src:
+        print(f"  SKIP leaf {fdid}: original not found")
+        return None
+    prompt = (
+        f"Enhance this {info['desc']} tree foliage game texture to higher quality. "
+        "Add richer individual leaf detail and color variation. "
+        "Keep uniform style across the entire texture, preserve transparent areas as-is. "
+        "Do NOT fill in empty/dark regions. "
+        "Stylized World of Warcraft aesthetic, painterly, not photorealistic."
+    )
+    print(f"  Generating leaf {fdid}: {info['desc']}...")
+    upscale_texture(src, out, prompt, resolution="4K", seamless=False)
+    _post_alpha(out)
+    print(f"  Saved leaf {fdid}: {out.name}")
+    return out
+
+
+def gen_prop(fdid, desc, skip_existing=True):
+    out = OUT_DIR / f"tex_{fdid}_nanobanana.webp"
+    if skip_existing and out.exists():
+        print(f"  SKIP prop {fdid}: already exists")
+        return out
+    src = _find_orig(fdid)
+    if not src:
+        print(f"  SKIP prop {fdid}: original not found")
+        return None
+    prompt = (
+        f"Dramatically enhance this {desc} game texture. "
+        "Keep the same layout but add much richer surface detail: "
+        "wood grain, metal rivets, stone cracks, fabric weave as appropriate. "
+        "Make it look like a high-budget AAA fantasy RPG texture with painterly brushstrokes. "
+        "4x the surface detail. Stylized World of Warcraft aesthetic, not photorealistic."
+    )
+    print(f"  Generating prop {fdid}: {desc}...")
+    upscale_texture(src, out, prompt, resolution="4K", seamless=True)
+    if Image.open(src).mode == "RGBA":
+        _post_alpha(out)
+    print(f"  Saved prop {fdid}: {out.name}")
+    return out
+
+
 def gen_wmo(fdid, skip_existing=True):
     out = WMO_OUT / f"tex_{fdid}_nanobanana.webp"
     if skip_existing and out.exists():
         print(f"  SKIP wmo {fdid}: already exists")
         return out
-
-    orig_path = WMO_ORIGINALS / f"tex_{fdid}.webp"
-    if not orig_path.exists():
-        orig_path = WMO_DIR / f"tex_{fdid}.webp"
-    if not orig_path.exists():
+    src = WMO_ORIGINALS / f"tex_{fdid}.webp"
+    if not src.exists():
+        src = WMO_DIR / f"tex_{fdid}.webp"
+    if not src.exists():
         print(f"  SKIP wmo {fdid}: original not found")
         return None
-
-    orig = Image.open(orig_path)
-    has_alpha = orig.mode == "RGBA"
-    alpha = orig.split()[3] if has_alpha else None
-    w, h = orig.size
-
     prompt = (
         "Dramatically enhance this building texture from a fantasy RPG game. "
         "Keep the same layout but add much richer surface detail: "
@@ -362,25 +240,9 @@ def gen_wmo(fdid, skip_existing=True):
         "Make it look like a high-budget AAA fantasy game texture. "
         "4x the surface detail. Stylized World of Warcraft aesthetic, not photorealistic."
     )
-
-    tmp = WMO_OUT / f"_tmp_wmo_{fdid}.png"
-    orig.convert("RGB").save(tmp)
-    aspect = guess_aspect(w, h)
-
-    print(f"  Generating wmo {fdid} ({w}x{h})...")
-    img = nano_pro_edit(prompt, tmp, resolution="4K", aspect=aspect)
-    tmp.unlink(missing_ok=True)
-    img = img.convert("RGB")
-
-    if has_alpha and alpha is not None:
-        up_alpha = alpha.resize(img.size, Image.LANCZOS)
-        result = Image.merge("RGBA", (*img.split(), up_alpha))
-    else:
-        result = img
-
-    WMO_OUT.mkdir(parents=True, exist_ok=True)
-    result.save(out)
-    print(f"  Saved wmo {fdid}: {out.name} ({result.size[0]}x{result.size[1]})")
+    print(f"  Generating wmo {fdid}...")
+    upscale_texture(src, out, prompt, resolution="4K", seamless=False)
+    print(f"  Saved wmo {fdid}: {out.name}")
     return out
 
 

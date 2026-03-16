@@ -227,10 +227,6 @@ The skin file header stores batches at offset 0x24 (count) and 0x28 (offset). Ea
 
 Pillow can read BLP natively but can only write BLP in palette (P) mode -- 256 colors max. For full-quality BLP2 with DXT compression, need external tools (BLPConverter). WoW 3.3.5a textures are max 1024x1024.
 
-## Creature Replaceable Textures
-
-Creature M2 models (wolf, boar, horse, human, etc.) have `texFdid=0` in their TXID chunk. This means the texture is "replaceable" -- assigned at runtime by the server based on the creature's display ID. The actual skin textures live at paths like `creature/wolf/wolfskinblack.blp`. To render creatures statically, patch the model JSON to replace FDID 0 with the actual skin texture FDID.
-
 ## WMO Texture Conventions
 
 WMO textures use WoW's V=0-at-top convention. When converting to OpenGL (V=0 at bottom), flip the V coordinate in the vertex data: `v = 1.0 - v`. Do NOT use `flipY = false` on the texture -- instead keep default flipY and transform the UVs.

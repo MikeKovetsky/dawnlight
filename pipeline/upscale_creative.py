@@ -1,22 +1,15 @@
-"""Upscale textures via fal.ai Nano Banana 2 (Gemini image-to-image).
+"""Upscale WoW textures via Nano Banana Pro (upgraded from Nano Banana 2).
 
-Uses the edit endpoint to regenerate textures at higher resolution
-while preserving the hand-painted WoW art style.
+Delegates actual upscaling to pipeline.core.upscale_texture().
 Supports both M2 model textures and terrain ground textures.
 """
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from io import BytesIO
 from pathlib import Path
 
-import fal_client
-import requests
-from PIL import Image
-
 from pipeline.config import ensure_dirs
-
-NANO_BANANA = "fal-ai/nano-banana-2/edit"
+from pipeline.core import upscale_texture as _core_upscale
 
 ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = ROOT / "viewer" / "models"
@@ -40,58 +33,22 @@ TERRAIN_NAMES = [
     "elwynnrockbasetest2",
 ]
 
-ASPECT_MAP = {
-    (1, 1): "1:1", (4, 3): "4:3", (3, 4): "3:4",
-    (16, 9): "16:9", (9, 16): "9:16", (3, 2): "3:2", (2, 3): "2:3",
-    (5, 4): "5:4", (4, 5): "4:5", (21, 9): "21:9",
-    (1, 2): "9:16", (2, 1): "16:9",
-    (1, 4): "1:4", (4, 1): "4:1", (1, 8): "1:8", (8, 1): "8:1",
-}
+_TEX_PROMPT = (
+    "Upscale this video game texture to higher resolution. "
+    "Keep the EXACT same composition, colors, shapes, and hand-painted art style. "
+    "Add fine surface detail and sharpen edges. Do not change the content at all, "
+    "only increase quality and resolution. This is a World of Warcraft tree texture."
+)
+
+_TERRAIN_PROMPT = (
+    "Upscale this seamless tiling ground texture to higher resolution. "
+    "Keep the EXACT same composition, colors, patterns, and hand-painted art style. "
+    "Add fine surface detail. Do not change the content at all, "
+    "only increase quality and resolution. This is a World of Warcraft terrain texture."
+)
 
 
-def guess_aspect(w, h):
-    from math import gcd
-    g = gcd(w, h)
-    ratio = (w // g, h // g)
-    if ratio in ASPECT_MAP:
-        return ASPECT_MAP[ratio]
-    return "auto"
-
-
-def nano_banana_upscale(img_path: Path, resolution: str = "2K",
-                        aspect: str = "auto", prompt: str = "") -> bytes:
-    url = fal_client.upload_file(str(img_path))
-
-    if not prompt:
-        prompt = (
-            "Upscale this video game texture to higher resolution. "
-            "Keep the EXACT same composition, colors, shapes, and hand-painted art style. "
-            "Add fine surface detail and sharpen edges. Do not change the content at all, "
-            "only increase quality and resolution. This is a World of Warcraft tree texture."
-        )
-
-    result = fal_client.subscribe(
-        NANO_BANANA,
-        arguments={
-            "prompt": prompt,
-            "image_urls": [url],
-            "resolution": resolution,
-            "aspect_ratio": aspect,
-            "output_format": "png",
-            "num_images": 1,
-            "safety_tolerance": "6",
-            "limit_generations": True,
-        },
-        with_logs=True,
-    )
-
-    img_data = result["images"][0]
-    resp = requests.get(img_data["url"], timeout=180)
-    resp.raise_for_status()
-    return resp.content
-
-
-def upscale_texture(fdid: int, resolution: str = "2K", skip_existing: bool = True, **kwargs):
+def upscale_texture(fdid, resolution="2K", skip_existing=True):
     out = COMPARE_DIR / f"tex_{fdid}_nanobanana.webp"
     if skip_existing and out.exists():
         print(f"  SKIP: {out.name} already exists")
@@ -104,40 +61,13 @@ def upscale_texture(fdid: int, resolution: str = "2K", skip_existing: bool = Tru
         print(f"  SKIP: tex_{fdid}.webp not found")
         return None
 
-    img = Image.open(src)
-    w, h = img.size
-    has_alpha = img.mode == "RGBA"
-    aspect = guess_aspect(w, h)
-
-    print(f"  {src.name}: {w}x{h} {img.mode} aspect={aspect} -> Nano Banana @ {resolution}")
-
-    COMPARE_DIR.mkdir(parents=True, exist_ok=True)
-
-    if has_alpha:
-        rgb = img.convert("RGB")
-        alpha = img.split()[3]
-
-        tmp_rgb = COMPARE_DIR / f"_tmp_rgb_{fdid}.png"
-        rgb.save(tmp_rgb)
-
-        print(f"    uploading & upscaling RGB...")
-        rgb_bytes = nano_banana_upscale(tmp_rgb, resolution=resolution, aspect=aspect, **kwargs)
-        tmp_rgb.unlink(missing_ok=True)
-
-        up_rgb = Image.open(BytesIO(rgb_bytes)).convert("RGB")
-        up_alpha = alpha.resize(up_rgb.size, Image.LANCZOS)
-        result = Image.merge("RGBA", (*up_rgb.split(), up_alpha))
-    else:
-        print(f"    uploading & upscaling...")
-        data = nano_banana_upscale(src, resolution=resolution, aspect=aspect, **kwargs)
-        result = Image.open(BytesIO(data))
-
-    result.save(out)
-    print(f"    saved {out.name} ({result.size[0]}x{result.size[1]} {result.mode})")
+    print(f"  {src.name}: -> Nano Banana Pro @ {resolution}")
+    _core_upscale(src, out, _TEX_PROMPT, resolution=resolution, seamless=False)
+    print(f"    saved {out.name}")
     return out
 
 
-def upscale_terrain(name: str, resolution: str = "2K", skip_existing: bool = True):
+def upscale_terrain(name, resolution="2K", skip_existing=True):
     TERRAIN_OUT.mkdir(parents=True, exist_ok=True)
     out = TERRAIN_OUT / f"{name}.webp"
     if skip_existing and out.exists():
@@ -149,23 +79,9 @@ def upscale_terrain(name: str, resolution: str = "2K", skip_existing: bool = Tru
         print(f"  SKIP: {name}.webp not found")
         return None
 
-    img = Image.open(src)
-    w, h = img.size
-    print(f"  {src.name}: {w}x{h} {img.mode} -> Nano Banana @ {resolution}")
-
-    prompt = (
-        "Upscale this seamless tiling ground texture to higher resolution. "
-        "Keep the EXACT same composition, colors, patterns, and hand-painted art style. "
-        "Add fine surface detail. Do not change the content at all, "
-        "only increase quality and resolution. This is a World of Warcraft terrain texture."
-    )
-
-    print(f"    uploading & upscaling...")
-    data = nano_banana_upscale(src, resolution=resolution,
-                               aspect=guess_aspect(w, h), prompt=prompt)
-    result = Image.open(BytesIO(data))
-    result.save(out)
-    print(f"    saved {out.name} ({result.size[0]}x{result.size[1]})")
+    print(f"  {src.name}: -> Nano Banana Pro @ {resolution}")
+    _core_upscale(src, out, _TERRAIN_PROMPT, resolution=resolution, seamless=True)
+    print(f"    saved {out.name}")
     return out
 
 
@@ -181,7 +97,7 @@ def _worker(key, resolution, is_terrain=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Nano Banana 2 upscaling")
+    parser = argparse.ArgumentParser(description="Nano Banana Pro upscaling")
     parser.add_argument("--fdids", nargs="*", type=int)
     parser.add_argument("--all", action="store_true", help="All tree textures")
     parser.add_argument("--terrain", action="store_true", help="Terrain ground textures")
@@ -189,6 +105,8 @@ def main():
     parser.add_argument("-j", "--parallel", type=int, default=5, help="Parallel workers")
     parser.add_argument("--force", action="store_true", help="Re-process existing outputs")
     args = parser.parse_args()
+
+    ensure_dirs()
 
     if args.terrain:
         keys = TERRAIN_NAMES
@@ -199,7 +117,7 @@ def main():
         is_terrain = False
         label = "M2"
 
-    print(f"Nano Banana 2 upscaling {len(keys)} {label} textures @ {args.resolution} "
+    print(f"Nano Banana Pro upscaling {len(keys)} {label} textures @ {args.resolution} "
           f"(parallel={args.parallel})...\n")
 
     ok, skip, fail = 0, 0, 0

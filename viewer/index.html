@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Dawnlight - Elwynn Forest Viewer</title>
+<title>Dawnlight</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -17,24 +17,30 @@
   }
   .header-left { display: flex; align-items: center; gap: 18px; }
   .logo { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: .5px; }
-  .header-nav { display: flex; gap: 2px; }
-  .header-nav a {
-    padding: 6px 14px; border-radius: 5px; font-size: 13px;
-    color: #778; text-decoration: none; transition: all .15s;
+  #zone-select {
+    padding: 5px 10px; font-size: 13px; font-family: inherit;
+    background: #1e1e34; color: #c8b88a; border: 1px solid #2a2a40;
+    border-radius: 5px; cursor: pointer; outline: none;
+    transition: all .15s;
   }
-  .header-nav a:hover { color: #bbc; background: #1a1a30; }
-  .header-nav a.active { color: #e8d8a8; background: #1e1e34; }
-  .header-right { display: flex; align-items: center; gap: 10px; }
-  .mode-label { color: #667; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  #zone-select:hover { background: #252540; border-color: #4a4a6e; }
+  #zone-select:focus { border-color: #d4a44a; }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
   .tex-mode { display: flex; }
   .tex-mode button {
-    padding: 6px 16px; font-size: 13px; cursor: pointer;
-    background: #1e1e34; color: #778; border: 1px solid #2a2a40;
-    font-family: inherit; transition: all .15s;
+    padding: 9px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
+    background: #1e1e34; color: #667; border: 1px solid #2a2a40;
+    font-family: inherit; transition: all .2s ease;
+    letter-spacing: .3px;
   }
-  .tex-mode button:first-child { border-radius: 5px 0 0 5px; }
-  .tex-mode button:last-child { border-radius: 0 5px 5px 0; border-left: 0; }
-  .tex-mode button.active { background: #2a2a4e; color: #e8d8a8; border-color: #4a4a6e; }
+  .tex-mode button:first-child { border-radius: 6px 0 0 6px; }
+  .tex-mode button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+  .tex-mode button.active {
+    background: linear-gradient(135deg, #2e2e52, #3a3a60);
+    color: #f0e4bc; border-color: #5a5a7e;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 10px rgba(200,184,138,.12);
+  }
   .tex-mode button:hover:not(.active) { background: #252540; color: #aab; }
 
   #btn-music {
@@ -49,7 +55,7 @@
     background: linear-gradient(135deg, #1e1e34, #2a2a4e);
     color: #e8d8a8;
     border: 2px solid #d4a44a;
-    box-shadow: 0 0 8px rgba(212,164,74,0.35), 0 0 2px rgba(232,200,100,0.2);
+    box-shadow: 0 0 10px rgba(212,164,74,0.4), 0 0 3px rgba(232,200,100,0.2);
     position: relative;
     overflow: hidden;
   }
@@ -67,35 +73,23 @@
     100% { transform: translateX(120%); }
   }
 
-  #hud {
-    position: fixed; top: 64px; left: 20px;
-    color: #c8b88a; font-size: 13px; pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0,0,0,.8);
-    line-height: 1.8;
-  }
-  #hud h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; letter-spacing: .5px; }
-  #hud .label { color: #9a9aaa; }
-  #hud .value { color: #e8d8a8; font-weight: 500; }
-
-  #drop-zone {
-    position: fixed; inset: 0;
-    display: none; align-items: center; justify-content: center;
-    background: rgba(26, 26, 46, .85);
-    z-index: 100;
-  }
-  #drop-zone.active { display: flex; }
-  #drop-zone .label {
-    color: #c8b88a; font-size: 22px; font-weight: 600;
-    border: 2px dashed #c8b88a; border-radius: 16px;
-    padding: 60px 80px; pointer-events: none;
-  }
-
-  #controls-hint {
-    position: fixed; bottom: 20px; left: 20px;
-    color: #7a7a8a; font-size: 12px;
+  #onboarding {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    z-index: 10; display: flex; align-items: center; gap: 12px;
+    padding: 12px 24px; border-radius: 10px;
+    background: rgba(14, 14, 26, 0.8);
+    border: 1px solid rgba(200, 184, 138, 0.12);
+    color: #c8b88a; font-size: 13px; letter-spacing: .3px;
+    backdrop-filter: blur(12px);
+    animation: onboardIn 1s ease;
+    transition: opacity 0.6s ease;
     pointer-events: none;
-    text-shadow: 0 1px 2px rgba(0,0,0,.6);
-    line-height: 1.7;
+  }
+  #onboarding.hidden { opacity: 0; }
+  #onboarding .sep { color: #3a3a4e; }
+  @keyframes onboardIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
   #tex-transition {
@@ -126,14 +120,6 @@
     to { transform: rotate(360deg); }
   }
 
-  #cam-coords {
-    position: fixed; bottom: 20px; right: 20px; z-index: 10;
-    color: rgba(200,184,138,0.7); font-size: 11px;
-    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-    pointer-events: none;
-    text-shadow: 0 1px 3px rgba(0,0,0,.8);
-    white-space: pre; line-height: 1.6;
-  }
 </style>
 </head>
 <body>
@@ -141,11 +127,10 @@
 <div id="site-header">
   <div class="header-left">
     <span class="logo">Dawnlight</span>
-    <nav class="header-nav">
-      <a href="/" class="active">Viewer</a>
-      <a href="/preview.html">Models</a>
-      <a href="/textures/">Textures</a>
-    </nav>
+    <select id="zone-select">
+      <option value="elwynn">Elwynn Forest</option>
+      <option value="nagrand">Nagrand</option>
+    </select>
   </div>
   <div class="header-right">
     <button id="btn-music" title="Toggle music (M)">
@@ -156,7 +141,6 @@
         <path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/>
       </svg>
     </button>
-    <span class="mode-label">Mode:</span>
     <div class="tex-mode">
       <button id="btn-tex-orig" class="active">Original</button>
       <button id="btn-tex-up">Upscaled</button>
@@ -164,25 +148,18 @@
   </div>
 </div>
 
-<div id="hud">
-  <h1>Dawnlight</h1>
-  <div><span class="label">Camera: </span><span class="value" id="mode-label">Orbit</span></div>
-  <div><span class="label">Textures: </span><span class="value" id="tex-label">Original</span></div>
-</div>
-
-<div id="drop-zone"><div class="label">Drop files here</div></div>
-
-<div id="controls-hint">
-  F &mdash; toggle fly / orbit camera &bull; T &mdash; toggle textures &bull; M &mdash; toggle music<br>
-  WASD &mdash; move (fly mode) &bull; Shift &mdash; fast<br>
-  Space / C &mdash; up / down &bull; Drag &mdash; orbit
+<div id="onboarding">
+  <span>Drag to look around</span>
+  <span class="sep">&middot;</span>
+  <span>Scroll to zoom</span>
+  <span class="sep">&middot;</span>
+  <span>Right-drag to pan</span>
 </div>
 
 <div id="tex-transition">
   <div class="spinner"></div>
   <div class="spinner-label" id="spinner-label">Enhancing...</div>
 </div>
-<div id="cam-coords"></div>
 
 <script type="importmap">
 {

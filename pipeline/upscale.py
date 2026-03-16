@@ -1,4 +1,8 @@
-"""Batch texture upscaling via fal.ai Real-ESRGAN."""
+"""Batch texture upscaling via fal.ai.
+
+Default: Nano Banana Pro (via core.upscale_texture).
+Legacy:  Real-ESRGAN (--esrgan flag).
+"""
 
 import argparse
 import sys
@@ -10,22 +14,12 @@ import requests
 from PIL import Image
 
 from pipeline.config import ESRGAN, IMG_EXTS, INPUT_DIR, UPSCALED_DIR, ensure_dirs
+from pipeline.core import upscale_texture as _core_upscale
 
 
-def upscale(path: Path, scale: int = 4, seamless: bool = False, out_dir: Path = UPSCALED_DIR) -> Path:
-    ensure_dirs()
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    orig_size = None
-    src = path
-
-    if seamless:
-        img = Image.open(path)
-        orig_size = img.size
-        src = _tile_2x2(path, img)
-
-    url = fal_client.upload_file(str(src))
-
+def _esrgan_upscale(path, scale=4, out_dir=UPSCALED_DIR):
+    """Legacy Real-ESRGAN upscale (no prompt, pure resolution boost)."""
+    url = fal_client.upload_file(str(path))
     result = fal_client.subscribe(
         ESRGAN,
         arguments={
@@ -36,65 +30,56 @@ def upscale(path: Path, scale: int = 4, seamless: bool = False, out_dir: Path = 
         },
         with_logs=True,
     )
-
     out_url = result["image"]["url"]
     resp = requests.get(out_url, timeout=120)
     resp.raise_for_status()
-
-    suffix = f"_{scale}x" if not seamless else f"_{scale}x_seamless"
-    out_path = out_dir / f"{path.stem}{suffix}.webp"
-    Image.open(BytesIO(resp.content)).save(out_path)
-
-    if seamless:
-        _crop_center_tile(out_path, orig_size, scale)
-        src.unlink(missing_ok=True)
-
+    out_path = out_dir / f"{path.stem}_{scale}x.png"
+    out_path.write_bytes(resp.content)
     return out_path
 
 
-def _tile_2x2(path: Path, img: Image.Image) -> Path:
-    w, h = img.size
-    tiled = Image.new(img.mode, (w * 2, h * 2))
-    for r in range(2):
-        for c in range(2):
-            tiled.paste(img, (c * w, r * h))
+def upscale(path, scale=4, seamless=False, out_dir=UPSCALED_DIR,
+            legacy_esrgan=False):
+    ensure_dirs()
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    tmp = path.parent / f"_tiled_{path.name}"
-    tiled.save(tmp)
-    return tmp
+    if legacy_esrgan:
+        return _esrgan_upscale(path, scale=scale, out_dir=out_dir)
 
-
-def _crop_center_tile(path: Path, orig_size: tuple[int, int], scale: int):
-    img = Image.open(path)
-    tw, th = orig_size[0] * scale, orig_size[1] * scale
-    left = (img.width - tw) // 2
-    top = (img.height - th) // 2
-    cropped = img.crop((left, top, left + tw, top + th))
-    cropped.save(path)
+    prompt = (
+        "Upscale this game texture to higher resolution. "
+        "Keep the EXACT same composition, colors, and style. "
+        "Add fine surface detail. Do not change the content."
+    )
+    out_path = out_dir / f"{path.stem}_upscaled.png"
+    return _core_upscale(path, out_path, prompt, seamless=seamless)
 
 
-def batch(input_dir: Path, scale: int = 4, seamless: bool = False, out_dir: Path = UPSCALED_DIR):
+def batch(input_dir, scale=4, seamless=False, out_dir=UPSCALED_DIR,
+          legacy_esrgan=False):
     files = sorted(f for f in input_dir.iterdir() if f.suffix.lower() in IMG_EXTS)
-
     if not files:
         print(f"No images found in {input_dir}")
         return
 
-    print(f"Upscaling {len(files)} textures at {scale}x (seamless={seamless})...")
+    label = "ESRGAN" if legacy_esrgan else "Nano Banana Pro"
+    print(f"Upscaling {len(files)} textures via {label} (seamless={seamless})...")
     for i, f in enumerate(files, 1):
         print(f"  [{i}/{len(files)}] {f.name}")
         try:
-            out = upscale(f, scale=scale, seamless=seamless, out_dir=out_dir)
+            out = upscale(f, scale=scale, seamless=seamless, out_dir=out_dir,
+                          legacy_esrgan=legacy_esrgan)
             print(f"    -> {out.name}")
         except Exception as e:
             print(f"    ERROR: {e}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AI texture upscaling via fal.ai Real-ESRGAN")
+    parser = argparse.ArgumentParser(description="AI texture upscaling via fal.ai")
     parser.add_argument("input", nargs="?", help="Image file or directory (default: assets/input/)")
     parser.add_argument("-s", "--scale", type=int, default=4, choices=[2, 4], help="Upscale factor")
-    parser.add_argument("--seamless", action="store_true", help="Preserve seamless tiling for ground textures")
+    parser.add_argument("--seamless", action="store_true", help="Preserve seamless tiling")
+    parser.add_argument("--esrgan", action="store_true", help="Use legacy Real-ESRGAN instead of Nano Banana Pro")
     parser.add_argument("-o", "--output", help="Output directory (default: assets/upscaled/)")
 
     args = parser.parse_args()
@@ -102,9 +87,11 @@ def main():
 
     target = Path(args.input) if args.input else INPUT_DIR
     if target.is_dir():
-        batch(target, scale=args.scale, seamless=args.seamless, out_dir=out_dir)
+        batch(target, scale=args.scale, seamless=args.seamless, out_dir=out_dir,
+              legacy_esrgan=args.esrgan)
     elif target.is_file():
-        out = upscale(target, scale=args.scale, seamless=args.seamless, out_dir=out_dir)
+        out = upscale(target, scale=args.scale, seamless=args.seamless, out_dir=out_dir,
+                      legacy_esrgan=args.esrgan)
         print(f"Saved: {out}")
     else:
         print(f"Not found: {target}")

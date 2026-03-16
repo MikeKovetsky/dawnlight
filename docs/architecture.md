@@ -71,11 +71,11 @@ Subcommands: `fetch-listfile`, `search`, `get`, `elwynn`, `adt`, `list`, `conver
 | File          | Purpose                                             |
 |--------------|------------------------------------------------------|
 | `index.html`  | Page shell, HUD, importmap for Three.js              |
-| `src/app.js`  | Scene, terrain, splatting shader, water, M2/WMO objects, NPCs, camera controls |
+| `src/app.js`  | Scene, terrain, splatting shader, water, M2/WMO objects, camera controls |
 | `preview.html` | Side-by-side model comparison page (Original vs Upscaled) |
 | `src/preview.js` | Preview page logic: dual viewports, synced cameras, model browser |
 
-Features: multi-texture splatting, water planes, M2 instanced rendering with multi-submesh + alpha, WMO buildings with tiled textures, static NPC creatures, T key texture toggle (Original ↔ Nano Banana Pro), F key camera mode toggle, model preview page with Prev/Next navigation across 61 models.
+Features: multi-texture splatting, water planes, M2 instanced rendering with multi-submesh + alpha, WMO buildings with tiled textures, T key texture toggle (Original ↔ Nano Banana Pro), F key camera mode toggle, model preview page with Prev/Next navigation across 61 models.
 
 | File                  | Purpose                                        |
 |-----------------------|------------------------------------------------|

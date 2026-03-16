@@ -1,8 +1,5 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
-
-
 
 const HEADER_H = document.getElementById("site-header")?.offsetHeight || 40;
 
@@ -11,7 +8,6 @@ scene.background = new THREE.Color(0x6b9bd2);
 scene.fog = new THREE.FogExp2(0x8eb8e0, 0.0006);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / (innerHeight - HEADER_H), 0.1, 8000);
-camera.position.set(1414, 56, 500);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight - HEADER_H);
@@ -25,21 +21,8 @@ document.body.appendChild(renderer.domElement);
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 orbitControls.dampingFactor = 0.08;
-orbitControls.target.set(1464, 15, 509);
 orbitControls.maxDistance = 6000;
-
-const flyControls = new PointerLockControls(camera, document.body);
-let flyMode = false;
-const velocity = new THREE.Vector3();
-const moveState = { forward: false, backward: false, left: false, right: false, up: false, down: false, fast: false };
-flyControls.addEventListener("lock", () => { flyMode = true; updateHUD(); });
-flyControls.addEventListener("unlock", () => { flyMode = false; updateHUD(); });
-
-orbitControls.enabled = false;
-camera.rotation.set(-0.482, -0.920, -0.37);
-renderer.domElement.addEventListener("click", () => {
-  if (!flyMode) flyControls.lock();
-});
+orbitControls.minDistance = 5;
 
 const sun = new THREE.DirectionalLight(0xffe8c0, 2.5);
 sun.position.set(1400 + 500, 600, 700 + 400);
@@ -59,18 +42,52 @@ scene.add(sun.target);
 scene.add(new THREE.HemisphereLight(0x87ceeb, 0x4a7a3a, 0.8));
 scene.add(new THREE.AmbientLight(0xfff5e6, 0.3));
 
+// -- zone config --
+
+const ZONES = {
+  elwynn: {
+    label: "Elwynn Forest",
+    tiles: ["azeroth_31_49", "azeroth_31_50", "azeroth_32_49", "azeroth_32_50"],
+    baseTX: 31, baseTY: 47,
+    texNames: ["elwynngrassbase", "elwynndirtbase2", "elwynnrockbasetest2", "elwynncobblestonebase"],
+    texDir: "textures", texExt: ".webp",
+    terrainDir: "terrain",
+    hasNormals: true,
+    camera: [1409.3, 57.3, 447.6], target: [1464, 15, 509],
+  },
+  nagrand: {
+    label: "Nagrand",
+    tiles: ["expansion01_17_35"],
+    baseTX: 17, baseTY: 35,
+    texNames: ["tex_187327", "tex_189024", "tex_187332", "tex_187357"],
+    texDir: "textures/nagrand", texExt: ".png",
+    terrainDir: "terrain/nagrand",
+    hasNormals: false,
+    camera: [446.8, 51.8, 404.2], target: [266, 20, 266],
+  },
+};
+
+const urlZone = new URLSearchParams(location.search).get("zone") || "elwynn";
+const zone = ZONES[urlZone] || ZONES.elwynn;
+
+const zoneSelect = document.getElementById("zone-select");
+if (zoneSelect) {
+  zoneSelect.value = urlZone;
+  zoneSelect.addEventListener("change", (e) => {
+    window.location.search = `?zone=${e.target.value}`;
+  });
+}
+
+camera.position.set(...zone.camera);
+orbitControls.target.set(...zone.target);
+
 // -- constants --
 
-const ALL_TILES = [];
-for (let x = 32; x <= 34; x++)
-  for (let y = 47; y <= 52; y++)
-    ALL_TILES.push(`azeroth_${x}_${y}`);
-const TILES = ["azeroth_31_49", "azeroth_31_50", "azeroth_32_49", "azeroth_32_50"];
-
+const TILES = zone.tiles;
 const TILE_SIZE = 533.3333;
 const CHUNK_SIZE = TILE_SIZE / 16;
-const BASE_TX = 31, BASE_TY = 47;
-const TEX_NAMES = ["elwynngrassbase", "elwynndirtbase2", "elwynnrockbasetest2", "elwynncobblestonebase"];
+const BASE_TX = zone.baseTX, BASE_TY = zone.baseTY;
+const TEX_NAMES = zone.texNames;
 const texLoader = new THREE.TextureLoader();
 const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
@@ -185,6 +202,11 @@ const FDID_TO_MODEL = {
   189794: "elwynnstonefencepost", 198261: "gryphonroost01",
   198199: "flagpole01", 199632: "crate01",
   198666: "stormwindwoodendummy01", 190596: "harness",
+  193043: "nagrandbush02", 203493: "wetlandsshrub04",
+  203296: "lochmodanshrub01", 203498: "wetlandsshurb08",
+  189959: "elwynntallwaterfall01", 193134: "nagrandtree08",
+  203492: "wetlandshrub09", 193045: "nagrandbush03",
+  191807: "ao_lamppost01",
 };
 
 const FOLIAGE_MODELS = new Set([
@@ -267,7 +289,9 @@ const SPLAT_NORMAL_GLSL = `{
 // -- helpers --
 
 function loadTileTex(name, subdir = "original", linear = false) {
-  const tex = texLoader.load(`textures/${subdir}/${name}.webp`);
+  const dir = zone.texDir || "textures";
+  const ext = zone.texExt || ".webp";
+  const tex = texLoader.load(`${dir}/${subdir}/${name}${ext}`);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   if (!linear) tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = maxAniso;
@@ -275,7 +299,7 @@ function loadTileTex(name, subdir = "original", linear = false) {
 }
 
 function tileOffset(tileName) {
-  const m = tileName.match(/(\d+)_(\d+)/);
+  const m = tileName.match(/(\d+)_(\d+)$/);
   if (!m) return [0, 0];
   return [(parseInt(m[2]) - BASE_TY) * TILE_SIZE, (parseInt(m[1]) - BASE_TX) * TILE_SIZE];
 }
@@ -295,16 +319,20 @@ let texModeIdx = 0;
 const terrainTexSets = {};
 const terrainNormals = {};
 const terrainHeights = {};
-for (const mode of TEX_MODES) {
+const zoneModes = zone.hasNormals ? TEX_MODES : ["original"];
+for (const mode of zoneModes) {
   terrainTexSets[mode] = {};
   const subdir = mode === "v2" ? "v2" : mode;
   for (const name of TEX_NAMES) {
     terrainTexSets[mode][name] = loadTileTex(name, subdir);
   }
 }
-for (const name of TEX_NAMES) {
-  terrainNormals[name] = loadTileTex(name + "_n", "normals", true);
-  terrainHeights[name] = loadTileTex(name + "_h", "heights", true);
+if (!terrainTexSets.v2) terrainTexSets.v2 = terrainTexSets.original;
+if (zone.hasNormals) {
+  for (const name of TEX_NAMES) {
+    terrainNormals[name] = loadTileTex(name + "_n", "normals", true);
+    terrainHeights[name] = loadTileTex(name + "_h", "heights", true);
+  }
 }
 const terrainTextures = () => terrainTexSets[TEX_MODES[texModeIdx]];
 
@@ -314,16 +342,17 @@ const terrainTiles = {};
 const terrainMeshes = [];
 
 async function loadTerrain() {
+  const tDir = zone.terrainDir || "terrain";
   for (const tileName of TILES) {
     try {
-      const resp = await fetch(`terrain/${tileName}.json`);
+      const resp = await fetch(`${tDir}/${tileName}.json`);
       if (!resp.ok) continue;
       const tile = await resp.json();
 
       let splatTex = null;
       try {
         splatTex = await new Promise((res, rej) =>
-          texLoader.load(`terrain/${tileName}_splatmap.webp`, res, undefined, rej));
+          texLoader.load(`${tDir}/${tileName}_splatmap.webp`, res, undefined, rej));
         splatTex.minFilter = splatTex.magFilter = THREE.LinearFilter;
       } catch {}
 
@@ -350,17 +379,21 @@ function makeSplatMaterial(splatTex) {
     shader.uniforms.texR = { value: texSet[TEX_NAMES[1]] };
     shader.uniforms.texG = { value: texSet[TEX_NAMES[2]] };
     shader.uniforms.texB = { value: texSet[TEX_NAMES[3]] };
-    shader.uniforms.texBaseN = { value: terrainNormals[TEX_NAMES[0]] };
-    shader.uniforms.texRN = { value: terrainNormals[TEX_NAMES[1]] };
-    shader.uniforms.texGN = { value: terrainNormals[TEX_NAMES[2]] };
-    shader.uniforms.texBN = { value: terrainNormals[TEX_NAMES[3]] };
-    shader.uniforms.texBaseH = { value: terrainHeights[TEX_NAMES[0]] };
-    shader.uniforms.texRH = { value: terrainHeights[TEX_NAMES[1]] };
-    shader.uniforms.texGH = { value: terrainHeights[TEX_NAMES[2]] };
-    shader.uniforms.texBH = { value: terrainHeights[TEX_NAMES[3]] };
+    const dummyTex = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1, THREE.RGBAFormat);
+    dummyTex.needsUpdate = true;
+    const dummyH = new THREE.DataTexture(new Uint8Array([128, 128, 128, 255]), 1, 1, THREE.RGBAFormat);
+    dummyH.needsUpdate = true;
+    shader.uniforms.texBaseN = { value: terrainNormals[TEX_NAMES[0]] || dummyTex };
+    shader.uniforms.texRN = { value: terrainNormals[TEX_NAMES[1]] || dummyTex };
+    shader.uniforms.texGN = { value: terrainNormals[TEX_NAMES[2]] || dummyTex };
+    shader.uniforms.texBN = { value: terrainNormals[TEX_NAMES[3]] || dummyTex };
+    shader.uniforms.texBaseH = { value: terrainHeights[TEX_NAMES[0]] || dummyH };
+    shader.uniforms.texRH = { value: terrainHeights[TEX_NAMES[1]] || dummyH };
+    shader.uniforms.texGH = { value: terrainHeights[TEX_NAMES[2]] || dummyH };
+    shader.uniforms.texBH = { value: terrainHeights[TEX_NAMES[3]] || dummyH };
     shader.uniforms.texScale = { value: 0.15 };
-    shader.uniforms.heightScale = { value: enhanced ? 0.04 : 0 };
-    shader.uniforms.normalStrength = { value: enhanced ? 1.0 : 0 };
+    shader.uniforms.heightScale = { value: (enhanced && zone.hasNormals) ? 0.04 : 0 };
+    shader.uniforms.normalStrength = { value: (enhanced && zone.hasNormals) ? 1.0 : 0 };
 
     shader.vertexShader = shader.vertexShader.replace(
       'void main() {',
@@ -502,7 +535,8 @@ function buildM2Submeshes(modelData) {
 async function loadObjects() {
   for (const tileName of TILES) {
     try {
-      const resp = await fetch(`terrain/${tileName}_objects.json`);
+      const tDir = zone.terrainDir || "terrain";
+      const resp = await fetch(`${tDir}/${tileName}_objects.json`);
       if (!resp.ok) continue;
       const data = await resp.json();
       await placeM2Objects(data.m2);
@@ -584,6 +618,11 @@ const FDID_TO_WMO = {
   106848: "goldshireblacksmith", 106905: "silo",
   107037: "magetower", 107232: "stable",
   108143: "redridgedocks02", 110773: "md_goldmine_varianta",
+  111333: "md_grogremound", 115717: "ao_bridgelong01",
+  115719: "ao_bridgelong02", 115727: "ao_footbridge01",
+  115777: "ancdrae_terrace", 115783: "ancdraehuta",
+  115792: "ancdraepost", 115848: "nagrand_rockfloating_01",
+  115850: "nagrand_rockfloating_02", 115852: "nagrand_rockfloating_waterfalls",
 };
 
 const wmoCache = {};
@@ -757,12 +796,6 @@ function updateMusicUI() {
 
 document.getElementById("btn-music")?.addEventListener("click", toggleMusic);
 
-// -- keyboard + HUD --
-
-const keyMap = {
-  KeyW: "forward", KeyS: "backward", KeyA: "left", KeyD: "right",
-  Space: "up", KeyC: "down", ShiftLeft: "fast", ShiftRight: "fast",
-};
 
 function applyHeights(geo, heights, gridSize) {
   const pos = geo.attributes.position;
@@ -820,12 +853,9 @@ function toggleTextures() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.code === "KeyF") { flyMode ? flyControls.unlock() : flyControls.lock(); return; }
-  if (e.code === "KeyT") { toggleTextures(); return; }
-  if (e.code === "KeyM") { toggleMusic(); return; }
-  if (keyMap[e.code]) moveState[keyMap[e.code]] = true;
+  if (e.code === "KeyT") toggleTextures();
+  if (e.code === "KeyM") toggleMusic();
 });
-document.addEventListener("keyup", (e) => { if (keyMap[e.code]) moveState[keyMap[e.code]] = false; });
 
 const btnTexOrig = document.getElementById("btn-tex-orig");
 const btnTexUp = document.getElementById("btn-tex-up");
@@ -839,10 +869,6 @@ btnTexOrig?.addEventListener("click", () => { if (texModeIdx !== 0) toggleTextur
 btnTexUp?.addEventListener("click", () => { if (texModeIdx !== 1) toggleTextures(); });
 
 function updateHUD() {
-  document.getElementById("mode-label").textContent = flyMode ? "Fly (WASD + mouse)" : "Orbit (drag)";
-  const label = TEX_LABELS[TEX_MODES[texModeIdx]] || TEX_MODES[texModeIdx];
-  const extra = texModeIdx > 0 ? " (v2) + Shadows, Normals, Parallax" : "";
-  document.getElementById("tex-label").textContent = label + extra;
   syncHeaderToggle();
 }
 
@@ -855,83 +881,13 @@ addEventListener("resize", () => {
 // -- render loop --
 
 const clock = new THREE.Clock();
-const coordsEl = document.getElementById("cam-coords");
 
 function animate() {
   requestAnimationFrame(animate);
   const dt = clock.getDelta();
   grassWindUni.uTime.value += dt;
-  if (flyMode) {
-    const speed = moveState.fast ? 200 : 60;
-    velocity.set(0, 0, 0);
-    if (moveState.forward) velocity.z -= speed;
-    if (moveState.backward) velocity.z += speed;
-    if (moveState.left) velocity.x -= speed;
-    if (moveState.right) velocity.x += speed;
-    if (moveState.up) velocity.y += speed;
-    if (moveState.down) velocity.y -= speed;
-    camera.position.addScaledVector(velocity.clone().applyQuaternion(camera.quaternion), dt);
-  } else if (orbitControls.enabled) {
-    orbitControls.update();
-  }
-  const p = camera.position;
-  const r = camera.rotation;
-  if (coordsEl) {
-    coordsEl.textContent =
-      `Pos: ${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}\n` +
-      `Rot: ${r.x.toFixed(3)}, ${r.y.toFixed(3)}, ${r.z.toFixed(3)}`;
-  }
+  orbitControls.update();
   renderer.render(scene, camera);
-}
-
-// Goldshire buildings for reference (MDDF coords):
-//   goldshireinn:       [17042, 57, 26531]
-//   goldshireblacksmith:[16973, 57, 26527]
-//   humantwostory:      [17135, 65, 26455]
-
-// -- player character --
-
-async function loadPlayer() {
-  const data = await loadModelJson("humanmale");
-  if (!data || data.nVerts < 3) return;
-
-  const submeshes = buildM2Submeshes(data);
-  const [lx, ly, lz] = mddfToViewer(17040, 57, 26510);
-  const group = new THREE.Group();
-  group.position.set(lx, ly, lz);
-  group.rotation.set(0, -THREE.MathUtils.degToRad(180), 0, "YXZ");
-  group.scale.setScalar(4.5);
-
-  for (const { geo, texFdid } of submeshes) {
-    if (!texFdid) continue;
-    const mat = new THREE.MeshStandardMaterial({
-      roughness: 0.8,
-      side: THREE.DoubleSide,
-      alphaTest: 0.3,
-      alphaHash: true,
-    });
-    mat.map = loadM2Tex(texFdid);
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-  }
-
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.55, 0.7, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0x00ff44,
-      transparent: true,
-      opacity: 0.6,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.02;
-  group.add(ring);
-
-  scene.add(group);
 }
 
 // -- procedural vegetation scatter --
@@ -966,7 +922,8 @@ function readSplatmapData(tileName) {
       resolve(ctx.getImageData(0, 0, img.width, img.height));
     };
     img.onerror = () => resolve(null);
-    img.src = `terrain/${tileName}_splatmap.webp`;
+    const tDir = zone.terrainDir || "terrain";
+    img.src = `${tDir}/${tileName}_splatmap.webp`;
   });
 }
 
@@ -1249,6 +1206,20 @@ function precompileShaders() {
 loadTerrain().then(() => {
   createGrassShells();
   return loadObjects();
-}).then(() => loadPlayer()).then(() => scatterVegetation()).then(() => precompileShaders());
+}).then(() => scatterVegetation()).then(() => precompileShaders());
 updateHUD();
+
+const onboard = document.getElementById("onboarding");
+if (onboard && !localStorage.getItem("dawnlight-onboarded")) {
+  const dismiss = () => {
+    onboard.classList.add("hidden");
+    localStorage.setItem("dawnlight-onboarded", "1");
+    setTimeout(() => onboard.remove(), 600);
+  };
+  setTimeout(dismiss, 6000);
+  renderer.domElement.addEventListener("pointerdown", dismiss, { once: true });
+} else if (onboard) {
+  onboard.remove();
+}
+
 animate();

@@ -48,17 +48,17 @@ body { background: #12121f; color: #d0d0d8; font-family: system-ui, -apple-syste
 .viewport canvas { display: block; width: 100%; height: 100%; }
 
 .viewport-label {
-  position: absolute; top: 12px; left: 14px;
-  font-size: 12px; color: #c8b88a; pointer-events: none;
-  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+  position: absolute; top: 16px; left: 18px;
+  font-size: 22px; font-weight: 700; color: #e8d8a8; pointer-events: none;
+  text-shadow: 0 2px 6px rgba(0,0,0,.9);
 }
-.viewport-label .sub { color: #777; font-size: 11px; display: block; margin-top: 2px; }
+.viewport-label .sub { color: #9a9aaa; font-size: 16px; font-weight: 400; display: block; margin-top: 4px; }
 
 .viewport-stats {
-  position: absolute; bottom: 12px; left: 14px;
-  font-size: 11px; color: #777; pointer-events: none;
-  text-shadow: 0 1px 2px rgba(0,0,0,.6);
-  line-height: 1.6;
+  position: absolute; bottom: 16px; left: 18px;
+  font-size: 14px; color: #9a9aaa; pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,.7);
+  line-height: 1.7;
 }
 </style>
 </head>
@@ -89,8 +89,12 @@ body { background: #12121f; color: #d0d0d8; font-family: system-ui, -apple-syste
     <div class="viewport-label">Original<span class="sub" id="stats-left-label"></span></div>
     <div class="viewport-stats" id="stats-left"></div>
   </div>
+  <div class="viewport" id="vp-mid">
+    <div class="viewport-label">New Textures<span class="sub" id="stats-mid-label"></span></div>
+    <div class="viewport-stats" id="stats-mid"></div>
+  </div>
   <div class="viewport" id="vp-right">
-    <div class="viewport-label">New Textures<span class="sub" id="stats-right-label"></span></div>
+    <div class="viewport-label">Trellis 2 Upscale<span class="sub" id="stats-right-label"></span></div>
     <div class="viewport-stats" id="stats-right"></div>
   </div>
 </div>
@@ -103,6 +107,6 @@ body { background: #12121f; color: #d0d0d8; font-family: system-ui, -apple-syste
   }
 }
 </script>
-<script type="module" src="src/preview.js"></script>
+<script type="module" src="src/preview.js?v=4"></script>
 </body>
 </html>

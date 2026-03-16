@@ -1,4 +1,7 @@
 fal-client
+numpy
 Pillow
+pyrender
 python-dotenv
 requests
+trimesh

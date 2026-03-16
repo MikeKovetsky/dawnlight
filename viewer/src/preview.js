@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const KNOWN_MODELS = [
   "orcmalewarriorheavy",
@@ -38,6 +39,9 @@ const UPSCALED_FDIDS = new Set([
 ]);
 
 const texLoader = new THREE.TextureLoader();
+const gltfLoader = new GLTFLoader();
+
+const GLB_MODELS = new Set(["orcmalewarriorheavy"]);
 
 function configTex(tex) {
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -76,10 +80,14 @@ function createViewport(container) {
 }
 
 const vpLeft = createViewport(document.getElementById("vp-left"));
+const vpMid = createViewport(document.getElementById("vp-mid"));
 const vpRight = createViewport(document.getElementById("vp-right"));
+const allVps = [
+  [vpLeft, "vp-left"], [vpMid, "vp-mid"], [vpRight, "vp-right"],
+];
 
 function resize() {
-  for (const [vp, id] of [[vpLeft, "vp-left"], [vpRight, "vp-right"]]) {
+  for (const [vp, id] of allVps) {
     const el = document.getElementById(id);
     const w = el.clientWidth, h = el.clientHeight;
     vp.renderer.setSize(w, h);
@@ -118,7 +126,7 @@ function buildM2Submeshes(data) {
   });
 }
 
-let leftGroup = null, rightGroup = null, currentModel = "";
+let leftGroup = null, midGroup = null, rightGroup = null, currentModel = "";
 
 const selectEl = document.getElementById("model-select");
 for (const name of KNOWN_MODELS) {
@@ -198,6 +206,39 @@ function loadM2Into(vp, name, texPath, labelEl, statsEl) {
   });
 }
 
+function loadGlbInto(vp, name, refGroup, labelEl, statsEl) {
+  return new Promise((resolve) => {
+    labelEl.textContent = "Loading GLB...";
+    statsEl.textContent = "";
+    gltfLoader.load(`models/glb/${name}_up.glb`, (gltf) => {
+      const group = new THREE.Group();
+      const inner = gltf.scene;
+      group.add(inner);
+
+      inner.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(group);
+      const size = box.getSize(new THREE.Vector3());
+
+      if (refGroup?.children.length) {
+        const refBox = new THREE.Box3().setFromObject(refGroup);
+        const refSize = refBox.getSize(new THREE.Vector3());
+        const scl = Math.max(refSize.x, refSize.y, refSize.z) / Math.max(size.x, size.y, size.z);
+        group.scale.setScalar(scl);
+      }
+
+      vp.scene.add(group);
+      fitCamera(vp, group);
+      const st = countGeo(group);
+      labelEl.textContent = `${st.verts.toLocaleString()} verts`;
+      statsEl.textContent = `Verts: ${st.verts.toLocaleString()}\nTris: ${st.tris.toLocaleString()}\nMethod: Trellis 2 upscale`;
+      resolve(group);
+    }, undefined, () => {
+      labelEl.textContent = "GLB not found";
+      resolve(new THREE.Group());
+    });
+  });
+}
+
 async function loadModel(name) {
   currentModel = name;
   selectEl.value = name;
@@ -205,6 +246,8 @@ async function loadModel(name) {
 
   clearGroup(vpLeft.scene, leftGroup);
   vpLeft.scene.add(vpLeft.grid);
+  clearGroup(vpMid.scene, midGroup);
+  vpMid.scene.add(vpMid.grid);
   clearGroup(vpRight.scene, rightGroup);
   vpRight.scene.add(vpRight.grid);
 
@@ -220,32 +263,45 @@ async function loadModel(name) {
       : `models/tex_${fdid}.webp`;
   };
 
-  [leftGroup, rightGroup] = await Promise.all([
-    loadM2Into(vpLeft, name, origTex,
-      document.getElementById("stats-left-label"),
-      document.getElementById("stats-left")),
-    loadM2Into(vpRight, name, newTex,
+  leftGroup = await loadM2Into(vpLeft, name, origTex,
+    document.getElementById("stats-left-label"),
+    document.getElementById("stats-left"));
+
+  midGroup = await loadM2Into(vpMid, name, newTex,
+    document.getElementById("stats-mid-label"),
+    document.getElementById("stats-mid"));
+
+  if (GLB_MODELS.has(name)) {
+    document.getElementById("vp-right").style.display = "";
+    rightGroup = await loadGlbInto(vpRight, name, leftGroup,
       document.getElementById("stats-right-label"),
-      document.getElementById("stats-right")),
-  ]);
+      document.getElementById("stats-right"));
+  } else {
+    document.getElementById("vp-right").style.display = "none";
+    rightGroup = null;
+  }
+
+  resize();
 }
 
-function syncCameras() {
-  if (!rightGroup?.children.length) return;
-  const off = vpLeft.camera.position.clone().sub(vpLeft.controls.target);
+function syncCamera(src, dst, dstGroup) {
+  if (!dstGroup?.children.length) return;
+  const off = src.camera.position.clone().sub(src.controls.target);
   const rc = new THREE.Vector3();
-  new THREE.Box3().setFromObject(rightGroup).getCenter(rc);
-  vpRight.controls.target.copy(rc);
-  vpRight.camera.position.copy(rc).add(off);
-  vpRight.camera.lookAt(rc);
-  vpRight.controls.update();
+  new THREE.Box3().setFromObject(dstGroup).getCenter(rc);
+  dst.controls.target.copy(rc);
+  dst.camera.position.copy(rc).add(off);
+  dst.camera.lookAt(rc);
+  dst.controls.update();
 }
 
 function animate() {
   requestAnimationFrame(animate);
   vpLeft.controls.update();
-  syncCameras();
+  syncCamera(vpLeft, vpMid, midGroup);
+  vpRight.controls.update();
   vpLeft.renderer.render(vpLeft.scene, vpLeft.camera);
+  vpMid.renderer.render(vpMid.scene, vpMid.camera);
   vpRight.renderer.render(vpRight.scene, vpRight.camera);
 }
 
