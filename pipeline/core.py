@@ -23,7 +23,7 @@ _fal_key = os.getenv("FAL_KEY") or os.getenv("FAL_API_KEY")
 if _fal_key:
     os.environ["FAL_KEY"] = _fal_key
 
-_NANO_PRO = "fal-ai/nano-banana-pro/edit"
+_NANO_PRO = "fal-ai/nano-banana-2/edit"
 _IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tga", ".webp"}
 
 _ASPECT_MAP = {
