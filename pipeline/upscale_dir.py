@@ -39,8 +39,12 @@ def main():
     parser.set_defaults(seamless=True)
     parser.add_argument("--normals", action="store_true",
                         help="Generate normal maps alongside upscaled textures")
+    parser.add_argument("--normals-dir",
+                        help="Write normals to this directory (default: next to output)")
     parser.add_argument("--heights", action="store_true",
                         help="Generate heightmaps alongside upscaled textures")
+    parser.add_argument("--heights-dir",
+                        help="Write heightmaps to this directory (default: next to output)")
     parser.add_argument("--workers", type=int, default=6,
                         help="Parallel workers for batch mode")
     parser.add_argument("--skip-existing", action="store_true", default=True)
@@ -61,6 +65,7 @@ def main():
             src, out, args.prompt,
             resolution=args.resolution, seamless=args.seamless,
             normals=args.normals, heights=args.heights,
+            normals_dir=args.normals_dir, heights_dir=args.heights_dir,
         )
         print(f"Saved: {out}")
     elif src.is_dir():
@@ -69,6 +74,7 @@ def main():
             resolution=args.resolution, seamless=args.seamless,
             normals=args.normals, heights=args.heights,
             workers=args.workers, skip_existing=args.skip_existing,
+            normals_dir=args.normals_dir, heights_dir=args.heights_dir,
         )
     else:
         print(f"Not found: {src}")

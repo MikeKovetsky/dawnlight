@@ -62,7 +62,7 @@ const ZONES = {
     texNames: ["tex_187327", "tex_189024", "tex_187332", "tex_187357"],
     texDir: "textures/nagrand", texExt: ".png",
     terrainDir: "terrain/nagrand",
-    hasNormals: false,
+    hasNormals: true,
     camera: [446.8, 51.8, 404.2], target: [266, 20, 266],
   },
 };
@@ -852,9 +852,21 @@ function toggleTextures() {
   }, 80);
 }
 
+const moveState = { forward: false, backward: false, left: false, right: false };
+
 document.addEventListener("keydown", (e) => {
+  if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = true;
+  if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = true;
+  if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = true;
+  if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = true;
   if (e.code === "KeyT") toggleTextures();
   if (e.code === "KeyM") toggleMusic();
+});
+document.addEventListener("keyup", (e) => {
+  if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = false;
+  if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = false;
+  if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = false;
+  if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = false;
 });
 
 const btnTexOrig = document.getElementById("btn-tex-orig");
@@ -881,11 +893,30 @@ addEventListener("resize", () => {
 // -- render loop --
 
 const clock = new THREE.Clock();
+const _fwd = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _move = new THREE.Vector3();
 
 function animate() {
   requestAnimationFrame(animate);
   const dt = clock.getDelta();
   grassWindUni.uTime.value += dt;
+
+  _move.set(0, 0, 0);
+  camera.getWorldDirection(_fwd);
+  _fwd.y = 0;
+  _fwd.normalize();
+  _right.crossVectors(_fwd, camera.up).normalize();
+  if (moveState.forward) _move.add(_fwd);
+  if (moveState.backward) _move.sub(_fwd);
+  if (moveState.right) _move.add(_right);
+  if (moveState.left) _move.sub(_right);
+  if (_move.lengthSq() > 0) {
+    _move.normalize().multiplyScalar(80 * dt);
+    camera.position.add(_move);
+    orbitControls.target.add(_move);
+  }
+
   orbitControls.update();
   renderer.render(scene, camera);
 }
@@ -1210,16 +1241,13 @@ loadTerrain().then(() => {
 updateHUD();
 
 const onboard = document.getElementById("onboarding");
-if (onboard && !localStorage.getItem("dawnlight-onboarded")) {
+if (onboard) {
   const dismiss = () => {
     onboard.classList.add("hidden");
-    localStorage.setItem("dawnlight-onboarded", "1");
     setTimeout(() => onboard.remove(), 600);
   };
-  setTimeout(dismiss, 6000);
+  setTimeout(dismiss, 8000);
   renderer.domElement.addEventListener("pointerdown", dismiss, { once: true });
-} else if (onboard) {
-  onboard.remove();
 }
 
 animate();

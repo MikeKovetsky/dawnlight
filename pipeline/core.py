@@ -131,15 +131,16 @@ def _gen_heightmap(img_path, blur_radius=1.0):
 # ---------------------------------------------------------------------------
 
 def upscale_texture(src, out, prompt, resolution="4K", seamless=True,
-                    normals=False, heights=False):
+                    normals=False, heights=False,
+                    normals_dir=None, heights_dir=None):
     """AI-upscale a single texture via fal.ai Nano Banana Pro.
 
     Handles 2x2 tiling (seamless), cross-blend, alpha preservation,
     aspect detection, brightness smoothing, and optional PBR map
     generation -- all internally.
 
-    If *normals* is True, writes ``{stem}_n.{ext}`` next to *out*.
-    If *heights* is True, writes ``{stem}_h.{ext}`` next to *out*.
+    Normal/height maps are written to *normals_dir* / *heights_dir* when
+    provided, otherwise next to *out*.
     """
     src, out = Path(src), Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -173,16 +174,20 @@ def upscale_texture(src, out, prompt, resolution="4K", seamless=True,
     result.save(out)
 
     if normals:
-        _gen_normal_map(out).save(out.parent / f"{out.stem}_n{out.suffix}")
+        n_dir = Path(normals_dir) if normals_dir else out.parent
+        n_dir.mkdir(parents=True, exist_ok=True)
+        _gen_normal_map(out).save(n_dir / f"{out.stem}_n{out.suffix}")
     if heights:
-        _gen_heightmap(out).save(out.parent / f"{out.stem}_h{out.suffix}")
+        h_dir = Path(heights_dir) if heights_dir else out.parent
+        h_dir.mkdir(parents=True, exist_ok=True)
+        _gen_heightmap(out).save(h_dir / f"{out.stem}_h{out.suffix}")
 
     return out
 
 
 def upscale_textures(src_dir, out_dir, prompt, resolution="4K", seamless=True,
                      normals=False, heights=False, workers=6,
-                     skip_existing=True):
+                     skip_existing=True, normals_dir=None, heights_dir=None):
     """Batch-upscale all textures in a directory.
 
     Walks *src_dir* for image files, calls :func:`upscale_texture` per
@@ -210,6 +215,7 @@ def upscale_textures(src_dir, out_dir, prompt, resolution="4K", seamless=True,
             src_path, out_path, prompt,
             resolution=resolution, seamless=seamless,
             normals=normals, heights=heights,
+            normals_dir=normals_dir, heights_dir=heights_dir,
         )
 
     results = []

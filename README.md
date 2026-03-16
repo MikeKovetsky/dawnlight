@@ -4,9 +4,9 @@ AI-upscaled World of Warcraft landscapes in your browser.
 
 **[Live Demo →](https://mikekovetsky.github.io/dawnlight/)**
 
-<!-- Add screenshots: save to screenshots/ and uncomment below -->
-<!-- ![Elwynn Forest](screenshots/hero.png) -->
-<!-- ![Original vs Upscaled](screenshots/comparison.png) -->
+| Original | AI-Upscaled |
+|----------|-------------|
+| ![Original](screenshots/original.png) | ![Upscaled](screenshots/hero.png) |
 
 ---
 
@@ -41,6 +41,16 @@ Create `.env` with `FAL_KEY=your_key`, then:
 ```bash
 python -m pipeline.upscale_dir ./textures/ -o ./upscaled/ \
   --prompt "fantasy RPG" --normals --heights --workers 6
+```
+
+Use `--normals-dir` / `--heights-dir` to write PBR maps to separate
+directories instead of alongside the diffuse textures.
+
+For WoW zones there's a shortcut that picks the right prompts and output
+layout automatically:
+
+```bash
+python -m pipeline.upscale_zone nagrand
 ```
 
 ### Add a WoW zone
