@@ -18,6 +18,8 @@ Zones: **Elwynn Forest** (Goldshire) · **Nagrand**
 
 **2. Upscale textures** -- Each texture goes through [fal.ai](https://fal.ai) Nano Banana Pro (Gemini image-to-image). A 2x2 tiling trick preserves seamless edges: tile the input, upscale, crop the center, cross-blend. Sobel-generated normal maps and heightmaps are derived from the upscaled diffuse for PBR shading.
 
+![Texture comparison](screenshots/textures.webp)
+
 **3. Upscale models** -- Low-poly M2 models (7K verts) can be fed through [Trellis 2](https://fal.ai/models/fal-ai/trellis-2) to generate high-poly meshes (65K+ verts) with clean topology and baked textures.
 
 ![Model comparison](screenshots/orc-preview.webp)

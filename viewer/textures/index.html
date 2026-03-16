@@ -28,7 +28,7 @@ nav {
   align-items: center; max-width: 1200px; margin: 0 auto;
 }
 nav a, nav button {
-  padding: 6px 14px; border-radius: 6px; font-size: 0.8rem;
+  padding: 6px 14px; border-radius: 6px; font-size: 1rem;
   color: #99a; text-decoration: none; background: #1e1e34;
   border: 1px solid #2a2a40; transition: all 0.15s; cursor: pointer;
   font-family: inherit;
@@ -48,7 +48,7 @@ nav .mode-toggle button:last-child { border-radius: 0 6px 6px 0; border-right-wi
 main { padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
 section { margin-bottom: 40px; }
 section h2 {
-  font-size: 1rem; color: #aab; margin-bottom: 16px;
+  font-size: 1.6rem; color: #aab; margin-bottom: 16px;
   padding-bottom: 8px; border-bottom: 1px solid #222238;
 }
 
@@ -68,14 +68,14 @@ section h2 {
   background: repeating-conic-gradient(#222 0% 25%, #1a1a2e 0% 50%) 50%/16px 16px;
 }
 .card .info {
-  padding: 8px 10px; font-size: 0.75rem;
+  padding: 8px 10px; font-size: 1rem;
   display: flex; justify-content: space-between; align-items: center;
 }
 .card .name { color: #ccd; font-weight: 500; }
 .card .size { color: #667; }
 .card .badges { display: flex; gap: 4px; margin-top: 4px; padding: 0 10px 8px; flex-wrap: wrap; }
 .badge {
-  font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;
+  font-size: 0.85rem; padding: 3px 8px; border-radius: 3px;
   background: #252540; color: #889;
 }
 .badge.nb { background: #3a2a10; color: #da4; }
@@ -90,14 +90,14 @@ section h2 {
 .compare-strip .strip-header {
   display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;
 }
-.compare-strip .strip-title { font-size: 0.95rem; color: #ccd; font-weight: 600; }
-.compare-strip .strip-meta { font-size: 0.75rem; color: #667; }
+.compare-strip .strip-title { font-size: 1.4rem; color: #ccd; font-weight: 600; }
+.compare-strip .strip-meta { font-size: 1.1rem; color: #667; }
 .compare-strip .strip-images {
   display: grid; gap: 12px; align-items: start;
 }
 .compare-strip .strip-col { text-align: center; min-width: 0; }
 .compare-strip .strip-col .label {
-  font-size: 0.7rem; color: #778; text-transform: uppercase;
+  font-size: 1rem; color: #778; text-transform: uppercase;
   letter-spacing: 1px; margin-bottom: 6px;
 }
 .compare-strip .strip-col .label.highlight { color: #f0c040; }
@@ -107,7 +107,7 @@ section h2 {
   background: repeating-conic-gradient(#222 0% 25%, #1a1a2e 0% 50%) 50%/12px 12px;
 }
 .compare-strip .strip-col .dim {
-  font-size: 0.65rem; color: #556; margin-top: 3px;
+  font-size: 0.9rem; color: #556;
 }
 
 /* Overlay (single-texture compare from grid click) */
@@ -121,14 +121,14 @@ section h2 {
   color: #999; cursor: pointer; z-index: 101; background: none; border: none;
 }
 .overlay .close:hover { color: #fff; }
-.overlay h3 { color: #fff; text-align: center; margin-bottom: 16px; font-size: 1.1rem; }
+.overlay h3 { color: #fff; text-align: center; margin-bottom: 16px; font-size: 1.6rem; }
 .compare-row {
   display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
   max-width: 1400px; margin: 0 auto;
 }
 .compare-cell { text-align: center; flex: 1; min-width: 250px; max-width: 500px; }
 .compare-cell h4 {
-  font-size: 0.8rem; color: #889; text-transform: uppercase;
+  font-size: 1.2rem; color: #889; text-transform: uppercase;
   letter-spacing: 1px; margin-bottom: 8px;
 }
 .compare-cell h4.highlight { color: #f0c040; }
@@ -136,7 +136,7 @@ section h2 {
   width: 100%; border-radius: 6px; border: 2px solid #2a2a4e;
   cursor: zoom-in;
 }
-.compare-cell .meta { font-size: 0.75rem; color: #556; margin-top: 4px; }
+.compare-cell .meta { font-size: 1rem; color: #556; margin-top: 4px; }
 
 /* Zoom */
 .zoom-overlay {
@@ -315,8 +315,8 @@ function gridTerrainSection() {
   TERRAIN.forEach(t => {
     html += `
       <div class="card" onclick="showTerrainCompare(${JSON.stringify(t)})">
-        <img class="thumb" src="${t.v2 || t.up}" loading="lazy" alt="${t.name}">
         <div class="info"><span class="name">${t.name}</span><span class="size">${t.origSize}px</span></div>
+        <img class="thumb" src="${t.v2 || t.up}" loading="lazy" alt="${t.name}">
         <div class="badges">
           ${t.nb ? '<span class="badge nb">Nano Banana</span>' : ''}
           ${t.v2 ? '<span class="badge v2">v2 Pro</span>' : ''}
@@ -336,11 +336,11 @@ function gridModelSection(cat, label) {
     if (m.hasCR) badges.push(`<span class="badge creative">Creative</span>`);
     html += `
       <div class="card" onclick="showModelCompare(${m.fdid})">
-        <img class="thumb" src="${modelPath(m.fdid)}" loading="lazy" alt="tex_${m.fdid}">
         <div class="info">
           <span class="name">tex_${m.fdid}</span>
           <span class="size">${m.w}x${m.h} ${m.mode}</span>
         </div>
+        <img class="thumb" src="${modelPath(m.fdid)}" loading="lazy" alt="tex_${m.fdid}">
         ${badges.length ? `<div class="badges">${badges.join("")}</div>` : ""}
       </div>`;
   });
@@ -353,10 +353,9 @@ function gridModelSection(cat, label) {
 function colHtml(label, src, highlight) {
   const cls = highlight ? ' highlight' : '';
   return `<div class="strip-col">
-    <div class="label${cls}">${label}</div>
+    <div class="label${cls}">${label} <span class="dim"></span></div>
     <img src="${src}" loading="lazy" onclick="zoomImg(this.src)"
-         onload="this.nextElementSibling.textContent=this.naturalWidth+'×'+this.naturalHeight">
-    <div class="dim"></div>
+         onload="this.previousElementSibling.querySelector('.dim').textContent=this.naturalWidth+'×'+this.naturalHeight">
   </div>`;
 }
 
