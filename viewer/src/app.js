@@ -852,13 +852,14 @@ function toggleTextures() {
   }, 80);
 }
 
-const moveState = { forward: false, backward: false, left: false, right: false };
+const moveState = { forward: false, backward: false, left: false, right: false, up: false };
 
 document.addEventListener("keydown", (e) => {
   if (e.code === "KeyW" || e.code === "ArrowUp") moveState.forward = true;
   if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = true;
   if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = true;
   if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = true;
+  if (e.code === "Space") { e.preventDefault(); moveState.up = true; }
   if (e.code === "KeyT") toggleTextures();
   if (e.code === "KeyM") toggleMusic();
 });
@@ -867,6 +868,7 @@ document.addEventListener("keyup", (e) => {
   if (e.code === "KeyS" || e.code === "ArrowDown") moveState.backward = false;
   if (e.code === "KeyA" || e.code === "ArrowLeft") moveState.left = false;
   if (e.code === "KeyD" || e.code === "ArrowRight") moveState.right = false;
+  if (e.code === "Space") moveState.up = false;
 });
 
 const btnTexOrig = document.getElementById("btn-tex-orig");
@@ -911,6 +913,7 @@ function animate() {
   if (moveState.backward) _move.sub(_fwd);
   if (moveState.right) _move.add(_right);
   if (moveState.left) _move.sub(_right);
+  if (moveState.up) _move.y += 1;
   if (_move.lengthSq() > 0) {
     _move.normalize().multiplyScalar(80 * dt);
     camera.position.add(_move);

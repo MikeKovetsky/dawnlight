@@ -25,7 +25,7 @@ body { background: #12121f; color: #d0d0d8; font-family: system-ui, -apple-syste
 nav {
   display: flex; gap: 8px; padding: 12px 32px; background: #16162a;
   border-bottom: 1px solid #2a2a3e; position: sticky; top: 40px; z-index: 10;
-  align-items: center;
+  align-items: center; max-width: 1200px; margin: 0 auto;
 }
 nav a, nav button {
   padding: 6px 14px; border-radius: 6px; font-size: 0.8rem;
@@ -45,7 +45,7 @@ nav .mode-toggle button {
 nav .mode-toggle button:first-child { border-radius: 6px 0 0 6px; }
 nav .mode-toggle button:last-child { border-radius: 0 6px 6px 0; border-right-width: 1px; }
 
-main { padding: 24px 32px; }
+main { padding: 24px 32px; max-width: 1200px; margin: 0 auto; }
 section { margin-bottom: 40px; }
 section h2 {
   font-size: 1rem; color: #aab; margin-bottom: 16px;
@@ -78,7 +78,6 @@ section h2 {
   font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;
   background: #252540; color: #889;
 }
-.badge.esrgan { background: #1a3020; color: #6b6; }
 .badge.nb { background: #3a2a10; color: #da4; }
 .badge.creative { background: #1a2a3a; color: #6ad; }
 .badge.v2 { background: #2a1a3a; color: #b8e; }
@@ -175,10 +174,10 @@ section h2 {
 
 <script>
 const TERRAIN = [
-  { name: "elwynncobblestonebase", orig: "original/elwynncobblestonebase.webp", up: "upscaled/elwynncobblestonebase.webp", nb: "nanobanana/elwynncobblestonebase.webp", v2: "v2/elwynncobblestonebase.webp", origSize: "1024", upSize: "4096" },
-  { name: "elwynndirtbase2", orig: "original/elwynndirtbase2.webp", up: "upscaled/elwynndirtbase2.webp", nb: "nanobanana/elwynndirtbase2.webp", v2: "v2/elwynndirtbase2.webp", origSize: "1024", upSize: "4096" },
-  { name: "elwynngrassbase", orig: "original/elwynngrassbase.webp", up: "upscaled/elwynngrassbase.webp", nb: "nanobanana/elwynngrassbase.webp", v2: "v2/elwynngrassbase.webp", origSize: "1024", upSize: "4096" },
-  { name: "elwynnrockbasetest2", orig: "original/elwynnrockbasetest2.webp", up: "upscaled/elwynnrockbasetest2.webp", nb: "nanobanana/elwynnrockbasetest2.webp", v2: "v2/elwynnrockbasetest2.webp", origSize: "1024", upSize: "4096" },
+  { name: "elwynncobblestonebase", orig: "original/elwynncobblestonebase.webp", nb: "nanobanana/elwynncobblestonebase.webp", v2: "v2/elwynncobblestonebase.webp", origSize: "1024" },
+  { name: "elwynndirtbase2", orig: "original/elwynndirtbase2.webp", nb: "nanobanana/elwynndirtbase2.webp", v2: "v2/elwynndirtbase2.webp", origSize: "1024" },
+  { name: "elwynngrassbase", orig: "original/elwynngrassbase.webp", nb: "nanobanana/elwynngrassbase.webp", v2: "v2/elwynngrassbase.webp", origSize: "1024" },
+  { name: "elwynnrockbasetest2", orig: "original/elwynnrockbasetest2.webp", nb: "nanobanana/elwynnrockbasetest2.webp", v2: "v2/elwynnrockbasetest2.webp", origSize: "1024" },
 ];
 
 const MODELS = [
@@ -319,7 +318,6 @@ function gridTerrainSection() {
         <img class="thumb" src="${t.v2 || t.up}" loading="lazy" alt="${t.name}">
         <div class="info"><span class="name">${t.name}</span><span class="size">${t.origSize}px</span></div>
         <div class="badges">
-          <span class="badge esrgan">ESRGAN 4x</span>
           ${t.nb ? '<span class="badge nb">Nano Banana</span>' : ''}
           ${t.v2 ? '<span class="badge v2">v2 Pro</span>' : ''}
         </div>
@@ -334,7 +332,6 @@ function gridModelSection(cat, label) {
   let html = `<section id="${cat}"><h2>${label} (${items.length})</h2><div class="grid">`;
   items.forEach(m => {
     const badges = [];
-    if (m.hasOrig) badges.push(`<span class="badge esrgan">ESRGAN 4x</span>`);
     if (m.hasNB) badges.push(`<span class="badge nb">Nano Banana</span>`);
     if (m.hasCR) badges.push(`<span class="badge creative">Creative</span>`);
     html += `
@@ -368,7 +365,6 @@ function compareTerrainSection() {
   TERRAIN.forEach(t => {
     let cols = [
       colHtml("Original", t.orig),
-      colHtml("ESRGAN 4x", t.up),
     ];
     if (t.nb) cols.push(colHtml("Nano Banana 2", t.nb));
     if (t.v2) cols.push(colHtml("v2 Pro", t.v2, true));
@@ -393,7 +389,6 @@ function compareModelSection(cat, label) {
   items.forEach(m => {
     const cols = [];
     cols.push(colHtml("Original", origPath(m.fdid)));
-    cols.push(colHtml("ESRGAN 4x", modelPath(m.fdid)));
     if (m.hasCR) cols.push(colHtml("Creative", crPath(m.fdid)));
     if (m.hasNB) cols.push(colHtml("Nano Banana 2", nbPath(m.fdid), true));
     const n = cols.length;
@@ -443,11 +438,6 @@ function showTerrainCompare(t) {
       <h4>Original</h4>
       <img src="${t.orig}" onclick="zoomImg(this.src)">
       <div class="meta">${t.origSize}×${t.origSize}</div>
-    </div>
-    <div class="compare-cell">
-      <h4>ESRGAN 4x</h4>
-      <img src="${t.up}" onclick="zoomImg(this.src)">
-      <div class="meta">${t.upSize}×${t.upSize}</div>
     </div>`;
   if (t.nb) {
     cells += `
@@ -484,11 +474,6 @@ function showModelCompare(fdid) {
         <div class="meta">${m.w}×${m.h}</div>
       </div>`;
   }
-  cells += `<div class="compare-cell">
-      <h4>${m.hasOrig ? "ESRGAN 4x" : "Current"}</h4>
-      <img src="${modelPath(fdid)}" onclick="zoomImg(this.src)">
-      <div class="meta">${m.hasOrig ? (m.w*4)+"×"+(m.h*4) : m.w+"×"+m.h}</div>
-    </div>`;
   if (m.hasCR) {
     cells += `<div class="compare-cell">
         <h4>Creative 2x</h4>

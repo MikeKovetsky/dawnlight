@@ -17,6 +17,13 @@
   }
   .header-left { display: flex; align-items: center; gap: 18px; }
   .logo { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: .5px; }
+  .header-nav { display: flex; gap: 2px; }
+  .header-nav a {
+    padding: 6px 14px; border-radius: 5px; font-size: 13px;
+    color: #778; text-decoration: none; transition: all .15s;
+  }
+  .header-nav a:hover { color: #bbc; background: #1a1a30; }
+  .header-nav a.active { color: #e8d8a8; background: #1e1e34; }
   #zone-select {
     padding: 5px 10px; font-size: 13px; font-family: inherit;
     background: #1e1e34; color: #c8b88a; border: 1px solid #2a2a40;
@@ -131,6 +138,11 @@
       <option value="elwynn">Elwynn Forest</option>
       <option value="nagrand">Nagrand</option>
     </select>
+    <nav class="header-nav">
+      <a href="/" class="active">Viewer</a>
+      <a href="/preview.html">Models</a>
+      <a href="/textures/">Textures</a>
+    </nav>
   </div>
   <div class="header-right">
     <button id="btn-music" title="Toggle music (M)">

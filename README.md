@@ -6,22 +6,23 @@ AI-upscaled World of Warcraft landscapes in your browser.
 
 | Original | AI-Upscaled |
 |----------|-------------|
-| ![Original](screenshots/original.png) | ![Upscaled](screenshots/hero.png) |
+| ![Original](screenshots/original.webp) | ![Upscaled](screenshots/hero.webp) |
 
----
-
-Toggle between original and AI-enhanced textures in real-time. Classic low-res textures go through [fal.ai](https://fal.ai) Nano Banana Pro to produce high-resolution PBR materials with normal maps, parallax, and shadows.
+Toggle between original and AI-enhanced textures in real-time. Classic 2004-era textures and low-poly models go through an AI pipeline that produces 4K PBR materials with normal maps, parallax heightmaps, and real-time shadows -- all rendered in Three.js.
 
 Zones: **Elwynn Forest** (Goldshire) · **Nagrand**
 
-## Features
+## How it works
 
-- Multi-texture terrain with splatmap blending
-- AI-upscaled textures via fal.ai Nano Banana Pro
-- Normal maps · parallax heightmaps · shadow mapping
-- 62 M2 models + 17 WMO buildings
-- Procedural vegetation and GPU-instanced grass
-- Ambient music
+**1. Extract** -- Download terrain, textures, and models directly from Blizzard's CDN via [wago.tools](https://wago.tools). ADT terrain files are parsed into heightmaps, texture splatmaps, and water planes. M2/WMO model files are parsed into renderable geometry.
+
+**2. Upscale textures** -- Each texture goes through [fal.ai](https://fal.ai) Nano Banana Pro (Gemini image-to-image). A 2x2 tiling trick preserves seamless edges: tile the input, upscale, crop the center, cross-blend. Sobel-generated normal maps and heightmaps are derived from the upscaled diffuse for PBR shading.
+
+**3. Upscale models** -- Low-poly M2 models (7K verts) can be fed through [Trellis 2](https://fal.ai/models/fal-ai/trellis-2) to generate high-poly meshes (65K+ verts) with clean topology and baked textures.
+
+![Model comparison](screenshots/orc-preview.webp)
+
+**4. Render** -- A Three.js viewer composites everything: multi-texture splatting with 4-layer blending, shadow mapping, parallax displacement, GPU-instanced grass (120K blades with wind), procedural vegetation scatter, and water planes. Press **T** to toggle between original and upscaled textures live.
 
 <details>
 <summary>Developer Setup</summary>
