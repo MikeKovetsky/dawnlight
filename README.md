@@ -16,6 +16,8 @@ The demo above is a browser reproduction of World of Warcraft's Goldshire, rende
 
 Zones: **Elwynn Forest** (Goldshire) · **Nagrand**
 
+Built with **[Portal AI](https://portal.ai)** -- an AI coding agent that orchestrates 200+ AI models from [fal.ai](https://fal.ai), manages repositories, and writes code. It's how one person builds a remaster pipeline over a weekend.
+
 ## Upscale any game
 
 Dawnlight works with any game, not just WoW. Extract your textures, run the pipeline, repack.
